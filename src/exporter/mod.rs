@@ -69,15 +69,23 @@ impl Debug for MetricsExporter {
 #[async_trait]
 impl PushMetricsExporter for MetricsExporter {
     async fn export(&self, metrics: &mut ResourceMetrics) -> Result<()> {
-        if self.trace_point.enabled() {
-            let proto_message: ExportMetricsServiceRequest = (&*metrics).into();
-
-            let mut byte_array = Vec::new();
-            let _encode_result = proto_message
-                .encode(&mut byte_array)
-                .map_err(|err| MetricsError::Other(err.to_string()))?;
-            let _result = tracepoint::write(&self.trace_point, byte_array.as_slice());
-        }
+        println!("export:");
+        let proto_message: ExportMetricsServiceRequest = (&*metrics).into();
+        println!("export: {}", serde_json::to_string_pretty(&proto_message).unwrap());
+        // let mut byte_array = Vec::new();
+        // let _encode_result = proto_message
+        //     .encode(&mut byte_array)
+        //     .map_err(|err| MetricsError::Other(err.to_string()))?;
+        // let _result = tracepoint::write(&self.trace_point, byte_array.as_slice());
+        // if self.trace_point.enabled() {
+        //     let proto_message: ExportMetricsServiceRequest = (&*metrics).into();
+        //     println!("export: {:?}", proto_message);
+        //     let mut byte_array = Vec::new();
+        //     let _encode_result = proto_message
+        //         .encode(&mut byte_array)
+        //         .map_err(|err| MetricsError::Other(err.to_string()))?;
+        //     let _result = tracepoint::write(&self.trace_point, byte_array.as_slice());
+        // }
         Ok(())
     }
 
