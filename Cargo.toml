@@ -19,5 +19,10 @@ prost = "0.12"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
+# Google sdk
+gcloud-sdk = { version = "0.25", features = ["tls-roots", "google-monitoring-v3"] }
+tonic = { version = "0.12", features = ["tls"] }
+
+
 [dev-dependencies]
 tokio = { version = "1.0", features = ["full"] }

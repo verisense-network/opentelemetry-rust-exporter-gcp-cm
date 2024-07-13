@@ -8,35 +8,26 @@ use opentelemetry_sdk::metrics::{
     Aggregation, InstrumentKind,
 };
 
-use crate::tracepoint;
-use eventheader::_internal as ehi;
-use prost::Message;
 use std::fmt::{Debug, Formatter};
-use std::pin::Pin;
 
-pub struct MetricsExporter {
-    trace_point: Pin<Box<ehi::TracepointState>>,
+
+pub struct GCPMetricsExporter {
+
 }
 
-impl MetricsExporter {
-    pub fn new() -> MetricsExporter {
-        let trace_point = Box::pin(ehi::TracepointState::new(0));
-        // This is unsafe because if the code is used in a shared object,
-        // the event MUST be unregistered before the shared object unloads.
-        unsafe {
-            let _result = tracepoint::register(trace_point.as_ref());
-        }
-        MetricsExporter { trace_point }
+impl GCPMetricsExporter {
+    pub fn new() -> Self {
+        Self {  }
     }
 }
 
-impl Default for MetricsExporter {
+impl Default for GCPMetricsExporter {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl TemporalitySelector for MetricsExporter {
+impl TemporalitySelector for GCPMetricsExporter {
     // This is matching OTLP exporters delta.
     fn temporality(&self, kind: InstrumentKind) -> Temporality {
         match kind {
@@ -52,7 +43,7 @@ impl TemporalitySelector for MetricsExporter {
     }
 }
 
-impl AggregationSelector for MetricsExporter {
+impl AggregationSelector for GCPMetricsExporter {
     // TODO: this should ideally be done at SDK level by default
     // without exporters having to do it.
     fn aggregation(&self, kind: InstrumentKind) -> Aggregation {
@@ -60,14 +51,14 @@ impl AggregationSelector for MetricsExporter {
     }
 }
 
-impl Debug for MetricsExporter {
+impl Debug for GCPMetricsExporter {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str("user_events metrics exporter")
+        f.write_str("Google monitoring metrics exporter")
     }
 }
 
 #[async_trait]
-impl PushMetricsExporter for MetricsExporter {
+impl PushMetricsExporter for GCPMetricsExporter {
     async fn export(&self, metrics: &mut ResourceMetrics) -> Result<()> {
         println!("export:");
         let proto_message: ExportMetricsServiceRequest = (&*metrics).into();

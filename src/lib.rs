@@ -1,4 +1,3 @@
 mod exporter;
-mod tracepoint;
 
-pub use exporter::MetricsExporter;
+pub use exporter::GCPMetricsExporter;

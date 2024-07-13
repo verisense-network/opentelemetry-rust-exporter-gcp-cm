@@ -7,11 +7,11 @@ use opentelemetry_sdk::{
     metrics::{PeriodicReader, SdkMeterProvider},
     runtime, Resource,
 };
-use opentelemetry_rust_exporter_gcp_cm::MetricsExporter;
+use opentelemetry_rust_exporter_gcp_cm::GCPMetricsExporter;
 use std::thread;
 use std::time::Duration;
 
-fn init_metrics(exporter: MetricsExporter) -> SdkMeterProvider {
+fn init_metrics(exporter: GCPMetricsExporter) -> SdkMeterProvider {
     let reader = PeriodicReader::builder(exporter, runtime::Tokio).build();
     SdkMeterProvider::builder()
         .with_resource(Resource::new(vec![KeyValue::new(
@@ -25,7 +25,7 @@ fn init_metrics(exporter: MetricsExporter) -> SdkMeterProvider {
 #[tokio::main]
 #[allow(unused_must_use)]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let exporter = opentelemetry_rust_exporter_gcp_cm::MetricsExporter::new();
+    let exporter = opentelemetry_rust_exporter_gcp_cm::GCPMetricsExporter::new();
     let meter_provider = init_metrics(exporter);
 
     let meter = meter_provider.meter("user-event-test");
