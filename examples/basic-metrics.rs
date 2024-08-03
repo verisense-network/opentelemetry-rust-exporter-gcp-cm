@@ -1,23 +1,28 @@
 //! run with `$ cargo run --example basic --all-features
 use opentelemetry::{
-    metrics::{MeterProvider as _, Unit},
+    metrics::MeterProvider as _,
     KeyValue,
 };
 use opentelemetry_sdk::{
     metrics::{PeriodicReader, SdkMeterProvider},
     runtime, Resource,
 };
-use opentelemetry_rust_exporter_gcp_cm::GCPMetricsExporter;
+use opentelemetry_rust_exporter_gcp_cm::{gcp_authorizer::{Authorizer, GcpAuthorizer}, GCPMetricsExporter};
 use std::thread;
 use std::time::Duration;
+use opentelemetry_resourcedetector_gcp_rust::GoogleCloudResourceDetector;
 
-fn init_metrics(exporter: GCPMetricsExporter) -> SdkMeterProvider {
+async fn init_metrics<A>(exporter: GCPMetricsExporter<'static, A>) -> SdkMeterProvider 
+where
+    A: Authorizer, {
     let reader = PeriodicReader::builder(exporter, runtime::Tokio).build();
+    let gcp_detector = GoogleCloudResourceDetector::new().await;
+    let res = Resource::new(vec![KeyValue::new(
+        "service.name",
+        "metric-demo",
+    )]).merge(&gcp_detector.get_resource());
     SdkMeterProvider::builder()
-        .with_resource(Resource::new(vec![KeyValue::new(
-            "service.name",
-            "metric-demo",
-        )]))
+        .with_resource(res)
         .with_reader(reader)
         .build()
 }
@@ -25,8 +30,9 @@ fn init_metrics(exporter: GCPMetricsExporter) -> SdkMeterProvider {
 #[tokio::main]
 #[allow(unused_must_use)]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let exporter = opentelemetry_rust_exporter_gcp_cm::GCPMetricsExporter::new();
-    let meter_provider = init_metrics(exporter);
+    let gcp_authorizer = GcpAuthorizer::new().await?;
+    let exporter = opentelemetry_rust_exporter_gcp_cm::GCPMetricsExporter::new(gcp_authorizer);
+    let meter_provider = init_metrics(exporter).await;
 
     let meter = meter_provider.meter("user-event-test");
 
@@ -34,13 +40,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let counter = meter
         .f64_counter("counter_f64_test")
         .with_description("test_decription")
-        .with_unit(Unit::new("test_unit"))
+        .with_unit("test_unit")
         .init();
 
     let counter2 = meter
         .u64_counter("counter_u64_test")
         .with_description("test_decription")
-        .with_unit(Unit::new("test_unit"))
+        .with_unit("test_unit")
         .init();
 
     // Create an UpDownCounter Instrument.
@@ -60,13 +66,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create a ObservableGauge instrument and register a callback that reports the measurement.
     let gauge = meter
         .f64_observable_gauge("observable_gauge_f64_test")
-        .with_unit(Unit::new("test_unit"))
+        .with_unit("test_unit")
         .with_description("test_description")
         .init();
 
     let gauge2 = meter
         .u64_observable_gauge("observable_gauge_u64_test")
-        .with_unit(Unit::new("test_unit"))
+        .with_unit("test_unit")
         .with_description("test_description")
         .init();
 
@@ -96,13 +102,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let observable_counter = meter
         .u64_observable_counter("observable_counter_u64_test")
         .with_description("test_description")
-        .with_unit(Unit::new("test_unit"))
+        .with_unit("test_unit")
         .init();
 
     let observable_counter2 = meter
         .f64_observable_counter("observable_counter_f64_test")
         .with_description("test_description")
-        .with_unit(Unit::new("test_unit"))
+        .with_unit("test_unit")
         .init();
 
     meter.register_callback(&[observable_counter.as_any()], move |observer| {
@@ -131,12 +137,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let observable_up_down_counter = meter
         .i64_observable_up_down_counter("observable_up_down_counter_i64_test")
         .with_description("test_description")
-        .with_unit(Unit::new("test_unit"))
+        .with_unit("test_unit")
         .init();
     let observable_up_down_counter2 = meter
         .f64_observable_up_down_counter("observable_up_down_counter_f64_test")
         .with_description("test_description")
-        .with_unit(Unit::new("test_unit"))
+        .with_unit("test_unit")
         .init();
 
     meter.register_callback(&[observable_up_down_counter.as_any()], move |observer| {
