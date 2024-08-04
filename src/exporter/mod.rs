@@ -1,7 +1,7 @@
 mod utils;
 
 use async_trait::async_trait;
-use gcloud_sdk::{google::{api::{metric_descriptor, metric_descriptor::MetricKind, LabelDescriptor, MetricDescriptor}, monitoring::v3::{metric_service_client::MetricServiceClient, CreateTimeSeriesRequest, TimeSeries}}, GoogleApi};
+use gcloud_sdk::google::{api::{metric_descriptor, metric_descriptor::MetricKind, LabelDescriptor, MetricDescriptor}, monitoring::v3::{metric_service_client::MetricServiceClient, CreateTimeSeriesRequest, TimeSeries}};
 use gcp_auth::TokenProvider;
 use opentelemetry::{global, metrics::{MetricsError, Result}};
 // use opentelemetry_proto::tonic::{collector::metrics::v1::ExportMetricsServiceRequest, metrics::v1::metric::Data as TonicMetricData};
@@ -24,7 +24,7 @@ use utils::{get_data_points_attributes_keys, normalize_label_key};
 use core::time;
 use std::{collections::HashSet, fmt::{Debug, Formatter}, sync::Arc};
 
-use crate::gcp_authorizer::Authorizer;
+use crate::{gcloud_sdk, gcp_authorizer::Authorizer};
 
 const UNIQUE_IDENTIFIER_KEY: &str = "opentelemetry_id";
 pub struct GCPMetricsExporter<'a, A: Authorizer> {
@@ -234,12 +234,12 @@ impl <A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
 
 
         let provider: Arc<dyn TokenProvider> = gcp_auth::provider().await.unwrap();
-        let gcp_monitoring_client = GoogleApi::from_function(
-            MetricServiceClient::new,
-            "https://monitoring.googleapis.com",
-            // cloud resource prefix: used only for some of the APIs (such as Firestore)
-            None,
-        ).await.unwrap();
+        // let gcp_monitoring_client = GoogleApi::from_function(
+        //     MetricServiceClient::new,
+        //     "https://monitoring.googleapis.com",
+        //     // cloud resource prefix: used only for some of the APIs (such as Firestore)
+        //     None,
+        // ).await.unwrap();
         let channel = Channel::from_static("https://monitoring.googleapis.com")
         .tls_config(ClientTlsConfig::new()).unwrap()
         .connect().await.unwrap();
@@ -285,7 +285,7 @@ impl <A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
         //         name: format!("projects/{}", project_id),
         //         time_series: transform(metrics, &project_id),
         //     })).await.unwrap();
-        
+        // 
 
         
         Ok(())
