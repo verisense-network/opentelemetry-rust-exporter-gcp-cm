@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use gcloud_sdk::google::{api::{metric_descriptor, metric_descriptor::MetricKind, LabelDescriptor, MetricDescriptor}, monitoring::v3::{metric_service_client::MetricServiceClient, CreateTimeSeriesRequest, TimeSeries}};
 use gcp_auth::TokenProvider;
 use opentelemetry::{global, metrics::{MetricsError, Result}};
-// use opentelemetry_proto::tonic::{collector::metrics::v1::ExportMetricsServiceRequest, metrics::v1::metric::Data as TonicMetricData};
+use opentelemetry_proto::tonic::{collector::metrics::v1::ExportMetricsServiceRequest, metrics::v1::metric::Data as TonicMetricData};
 use opentelemetry_sdk::metrics::{
     data::{Metric as OpentelemetrySdkMetric, ResourceMetrics},
     exporter::PushMetricsExporter,
@@ -223,7 +223,7 @@ impl <A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
     async fn export(&self, metrics: &mut ResourceMetrics) -> Result<()> {
         
         println!("export: {:#?}", metrics);
-        // let proto_message: ExportMetricsServiceRequest = (&*metrics).into();
+        let proto_message: ExportMetricsServiceRequest = (&*metrics).into();
         // println!("export: {}", serde_json::to_string_pretty(&proto_message).unwrap());
 
 
