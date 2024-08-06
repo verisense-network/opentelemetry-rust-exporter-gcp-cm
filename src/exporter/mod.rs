@@ -1,9 +1,10 @@
 mod utils;
 
 use async_trait::async_trait;
+
 use gcloud_sdk::google::{api::{metric_descriptor, metric_descriptor::MetricKind, LabelDescriptor, MetricDescriptor}, monitoring::v3::{metric_service_client::MetricServiceClient, CreateTimeSeriesRequest, TimeSeries}};
 use gcp_auth::TokenProvider;
-use opentelemetry::{global, metrics::{MetricsError, Result}};
+use opentelemetry::{global, metrics::{MetricsError, Result as MetricsResult}};
 use opentelemetry_proto::tonic::{collector::metrics::v1::ExportMetricsServiceRequest, metrics::v1::metric::Data as TonicMetricData};
 use opentelemetry_sdk::metrics::{
     data::{Metric as OpentelemetrySdkMetric, ResourceMetrics},
@@ -22,26 +23,53 @@ use tonic::{service::interceptor::InterceptedService, transport::{Channel, Clien
 use utils::{get_data_points_attributes_keys, normalize_label_key};
 
 use core::time;
-use std::{collections::HashSet, fmt::{Debug, Formatter}, sync::Arc};
+use std::{collections::HashSet, fmt::{Debug, Formatter}, sync::Arc, time::Duration};
 
-use crate::{gcloud_sdk, gcp_authorizer::Authorizer};
+use crate::{gcloud_sdk, gcp_authorizer::{Authorizer, FakeAuthorizer, GoogleEnvironment}};
 
 const UNIQUE_IDENTIFIER_KEY: &str = "opentelemetry_id";
 pub struct GCPMetricsExporter<'a, A: Authorizer> {
     prefix: String,
     unique_identifier: bool,
     authorizer: A,
+    is_test_env: bool,
     scopes: &'a [&'a str],
 }
 
 impl<'a, A: Authorizer> GCPMetricsExporter<'a, A> {
-    pub fn new(authorizer: A) -> Self {
+    pub async fn new(authorizer: A) -> Self {
         let scopes = vec!["https://www.googleapis.com/auth/cloud-platform".to_string()];
+        
         Self { 
             prefix: "workload.googleapis.com".to_string(), 
             unique_identifier: false, 
             authorizer, 
+            is_test_env: false,
             scopes: &["https://www.googleapis.com/auth/cloud-platform"],
+        }
+    }
+
+    pub fn fake_new() -> GCPMetricsExporter<'a, FakeAuthorizer> {
+        let scopes = vec!["https://www.googleapis.com/auth/cloud-platform".to_string()];
+        GCPMetricsExporter { 
+            prefix: "workload.googleapis.com".to_string(), 
+            unique_identifier: false, 
+            authorizer: FakeAuthorizer {}, 
+            is_test_env: true,
+            scopes: &["https://www.googleapis.com/auth/cloud-platform"],
+        }
+    }
+
+    pub async fn make_chanel(&self) -> Result<Channel, crate::error::Error> {
+        if self.is_test_env {
+            Channel::from_static("http://localhost:50051")
+            .connect_timeout(Duration::from_secs(30))
+            .tcp_keepalive(Some(Duration::from_secs(60)))
+            .keep_alive_timeout(Duration::from_secs(60))
+            .http2_keep_alive_interval(Duration::from_secs(60))
+            .connect().await.map_err(|e| crate::error::ErrorKind::Other(e.to_string()).into())
+        } else {
+            GoogleEnvironment::init_google_services_channel("https://monitoring.googleapis.com").await
         }
     }
 }
@@ -220,7 +248,7 @@ impl <'a, A: Authorizer> GCPMetricsExporter<'a, A> {
 
 #[async_trait]
 impl <A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
-    async fn export(&self, metrics: &mut ResourceMetrics) -> Result<()> {
+    async fn export(&self, metrics: &mut ResourceMetrics) -> MetricsResult<()> {
         
         println!("export: {:#?}", metrics);
         let proto_message: ExportMetricsServiceRequest = (&*metrics).into();
@@ -233,27 +261,24 @@ impl <A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
 
 
 
-        let provider: Arc<dyn TokenProvider> = gcp_auth::provider().await.unwrap();
+        // let provider: Arc<dyn TokenProvider> = gcp_auth::provider().await.unwrap();
         // let gcp_monitoring_client = GoogleApi::from_function(
         //     MetricServiceClient::new,
         //     "https://monitoring.googleapis.com",
         //     // cloud resource prefix: used only for some of the APIs (such as Firestore)
         //     None,
         // ).await.unwrap();
-        let channel = Channel::from_static("https://monitoring.googleapis.com")
-        .tls_config(ClientTlsConfig::new()).unwrap()
-        .connect().await.unwrap();
-        
-        let mut msc = MetricServiceClient::new(channel);
 
+
+        let channel = self.make_chanel().await.unwrap();
+        let mut msc = MetricServiceClient::new(channel);
+        let project_id = self.authorizer.project_id();
         let mut req = tonic::Request::new(gcloud_sdk::google::monitoring::v3::GetMetricDescriptorRequest {
-            name: "projects/".to_string(),
+            name: format!("projects/{}", project_id),
             // metric_descriptor: metrics.get_metric_descriptor(),
         });
         self.authorizer.authorize(&mut req, &self.scopes).await.unwrap();
-        msc.get_metric_descriptor(req).await.unwrap();
-
-        let project_id = provider.project_id().await.unwrap().to_string();
+        // msc.get_metric_descriptor(req).await.unwrap();
         
 
         // let mut timeSeries: Vec<TimeSeries> = Vec::new();
@@ -291,11 +316,11 @@ impl <A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
         Ok(())
     }
 
-    async fn force_flush(&self) -> Result<()> {
+    async fn force_flush(&self) -> MetricsResult<()> {
         Ok(()) // In this implementation, flush does nothing
     }
 
-    fn shutdown(&self) -> Result<()> {
+    fn shutdown(&self) -> MetricsResult<()> {
         // TracepointState automatically unregisters when dropped
         // https://github.com/microsoft/LinuxTracepoints-Rust/blob/main/eventheader/src/native.rs#L618
         Ok(())

@@ -1,10 +1,19 @@
 use std::future::Future;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::collections::HashMap;
 use crate::gcloud_sdk;
 use crate::gcloud_sdk::google::api::MetricDescriptor;
 use crate::gcloud_sdk::google::monitoring::v3::metric_service_client::MetricServiceClient;
 use crate::gcloud_sdk::google::monitoring::v3::{CreateMetricDescriptorRequest, CreateTimeSeriesRequest};
+use crate::gcp_authorizer::FakeAuthorizer;
+
+use tokio::sync::RwLock;
+
+use opentelemetry::KeyValue;
+use opentelemetry::metrics::MeterProvider;
+
+use opentelemetry_sdk::metrics::{PeriodicReader, SdkMeterProvider};
+use opentelemetry_sdk::{runtime, Resource};
 use tonic::transport::Channel;
 use tonic::{transport::Server, Request, Response, Status};
 use prost::Message;
@@ -17,7 +26,7 @@ pub(crate) struct GcmCall {
     user_agent: String,
 }
 
-pub(crate) type GcmCalls = Arc<Mutex<HashMap<String, Vec<GcmCall>>>>;
+pub(crate) type GcmCalls = Arc<RwLock<HashMap<String, Vec<GcmCall>>>>;
 
 #[derive(Default)]
 pub struct MyMetricService {
@@ -60,7 +69,7 @@ impl MetricService for MyMetricService {
         let user_agent = request.metadata().get("user-agent").map(|v| v.to_str().unwrap_or("").to_string()).unwrap_or_default();
         let message = request.into_inner().encode_to_vec();
         let call = GcmCall { message, user_agent };
-        self.calls.lock().unwrap().entry("CreateTimeSeries".to_string()).or_default().push(call);
+        self.calls.write().await.entry("CreateTimeSeries".to_string()).or_default().push(call);
         Ok(Response::new(()))
     }
 
@@ -72,7 +81,7 @@ impl MetricService for MyMetricService {
         let message: CreateMetricDescriptorRequest = request.into_inner();
         let msg_vec = message.encode_to_vec();
         let call = GcmCall { message: msg_vec, user_agent };
-        self.calls.lock().unwrap().entry("CreateMetricDescriptor".to_string()).or_default().push(call);
+        self.calls.write().await.entry("CreateMetricDescriptor".to_string()).or_default().push(call);
         println!("call fake CreateMetricDescriptor: {:?}", message);
         if message.metric_descriptor.is_none() {
             return Err(Status::invalid_argument("metric_descriptor is required"));
@@ -135,7 +144,7 @@ where
     Fut: Future<Output = ()>,
 {
     let addr = "[::1]:50051".parse().unwrap();
-    let calls: GcmCalls = Arc::new(Mutex::new(HashMap::new()));
+    let calls: GcmCalls = Arc::new(RwLock::new(HashMap::new()));
     let metric_service = MyMetricService { calls: calls.clone() };
 
     tokio::spawn(async move {
@@ -155,10 +164,30 @@ where
     f(calls.clone(), &mut msc).await;
 }
 
+fn init_metrics(res: Resource) -> SdkMeterProvider {
+    let exporter = crate::GCPMetricsExporter::<FakeAuthorizer>::fake_new();
+    let reader = PeriodicReader::builder(exporter, runtime::Tokio).build();
+    // let res: Resource = Resource::new(vec![KeyValue::new(
+    //     "service.name",
+    //     "metric-demo",
+    // )]);
+    // let provider = SdkMeterProvider::builder();
+    // let provider = provider.with_resource(res);
+    // let provider = provider.with_reader(reader);
+    // let provider =  provider.build();
+    // provider
+    SdkMeterProvider::builder()
+        .with_resource(res)
+        .with_reader(reader)
+        .build()
+}
+
+
 #[cfg(test)]
 mod tests {
     use crate::gcloud_sdk::{self, google::monitoring::v3::metric_service_client::MetricServiceClient};
     use metric_service_server::MetricServiceServer;
+    use opentelemetry::metrics;
     use tonic::transport::Channel;
     use tonic::transport::Server;
 
@@ -168,7 +197,7 @@ mod tests {
     #[tokio::test]
     async fn test_1() {
         let addr = "[::1]:50051".parse().unwrap();
-        let calls: GcmCalls = Arc::new(Mutex::new(HashMap::new()));
+        let calls: GcmCalls = Arc::new(RwLock::new(HashMap::new()));
         let metric_service = MyMetricService { calls: calls.clone() };
 
         tokio::spawn(async move {
@@ -194,5 +223,62 @@ mod tests {
         // self.authorizer.authorize(&mut req, &self.scopes).await.unwrap();
         let resp = msc.create_metric_descriptor(req).await;
         println!("resp: {:?}", resp);
+    }
+
+    #[tokio::test(flavor ="multi_thread", worker_threads = 1)]
+    // #[tokio::test]
+    async fn test_histogram_default_buckets() {
+        println!("init test_histogram_default_buckets test");
+
+        let addr = "[::1]:50051".parse().unwrap();
+        let calls: GcmCalls = Arc::new(RwLock::new(HashMap::new()));
+        let metric_service = MyMetricService { calls: calls.clone() };
+        
+        tokio::spawn(async move {
+            println!("Server listening on {}", addr);
+            Server::builder()
+            .add_service(MetricServiceServer::new(metric_service))
+            .serve(addr)
+            .await.unwrap();
+        });
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+        println!("init fake server");
+        // return;
+        // let metrics_provider = SdkMeterProvider::default();
+        let metrics_provider = init_metrics(Resource::new(vec![KeyValue::new(
+            "service.name",
+            "metric-demo",
+        )]));
+        println!("init metrics_provider");
+
+        // return;
+        let meter = metrics_provider.meter("test_cloud_monitoring");
+        let histogram = meter
+            .f64_histogram("myhistogram")
+            .with_description("foo")
+            .init();
+        println!("init histogram");
+        for i in 0..1 {
+            histogram.record(
+                i as f64,
+                &[
+                    KeyValue::new("string", "string"),
+                    KeyValue::new("int", 123),
+                    KeyValue::new("float", 123.4),
+                ],
+            );
+        }
+
+        println!("start flushing metrics");
+        metrics_provider.force_flush().unwrap();
+        println!("end flushing metrics");
+        
+
+        // self.authorizer.authorize(&mut req, &self.scopes).await.unwrap();
+        let res = calls.read().await;
+        res.iter().for_each(|(k, v)| {
+            println!("calls:   {}: {:?}", k, v);
+        });
     }
 }

@@ -5,6 +5,7 @@ use std::{convert::From, fmt};
 pub enum ErrorKind {
     /// GCE metadata service error.
     Metadata(String),
+    Other(String),
     TonicMetadata(tonic::metadata::errors::InvalidMetadataValue),
     /// Token source error.
     TokenSource,
@@ -44,6 +45,7 @@ impl fmt::Display for Error {
         use ErrorKind::*;
         match *self.0 {
             Metadata(ref e) => write!(f, "gce metadata service error: {}", e),
+            Other(ref e) => write!(f, "gce other service error: {}", e),
             TokenSource => write!(f, "token source error: not found token source"),
             CredentialsJson(ref e) => write!(f, "credentials json error: {}", e),
             CredentialsFile(ref e) => write!(f, "credentials file error: {}", e),

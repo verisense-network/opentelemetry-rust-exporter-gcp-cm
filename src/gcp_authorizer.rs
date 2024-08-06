@@ -106,6 +106,25 @@ impl Authorizer for GcpAuthorizer {
     }
 }
 
+pub struct FakeAuthorizer;
+
+#[async_trait]
+impl Authorizer for FakeAuthorizer {
+    type Error = gcp_auth::Error;
+    fn project_id(&self) -> &str {
+        "fake_project_id"
+    }
+    
+    async fn authorize<T: Send + Sync>(&self, req: &mut tonic::Request<T>, scopes: &[&str]) -> Result<(), gcp_auth::Error> {
+        req.metadata_mut().insert(
+            "authorization",
+            MetadataValue::try_from(format!("Bearer {}", "fake_token")).unwrap(),
+        );
+        Ok(())
+    }
+}
+
+
 #[async_trait]
 pub trait Authorizer: Sync + Send + 'static {
     type Error: std::error::Error + std::fmt::Debug + Send + Sync;
