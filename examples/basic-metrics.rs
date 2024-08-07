@@ -3,36 +3,34 @@ use opentelemetry::{
     metrics::MeterProvider as _,
     KeyValue,
 };
+use opentelemetry_rust_exporter_gcp_cm::gcp_authorizer::GcpAuthorizer;
 use opentelemetry_sdk::{
     metrics::{PeriodicReader, SdkMeterProvider},
     runtime, Resource,
 };
-use opentelemetry_rust_exporter_gcp_cm::{gcp_authorizer::{Authorizer, GcpAuthorizer}, GCPMetricsExporter};
 use std::thread;
 use std::time::Duration;
 use opentelemetry_resourcedetector_gcp_rust::GoogleCloudResourceDetector;
 
-async fn init_metrics<A>(exporter: GCPMetricsExporter<'static, A>) -> SdkMeterProvider 
-where
-    A: Authorizer, {
+async fn init_metrics() ->  Result<SdkMeterProvider, Box<dyn std::error::Error>> {
+    let gcp_authorizer = GcpAuthorizer::new().await?;
+    let exporter = opentelemetry_rust_exporter_gcp_cm::GCPMetricsExporter::new(gcp_authorizer);
     let reader = PeriodicReader::builder(exporter, runtime::Tokio).build();
     let gcp_detector = GoogleCloudResourceDetector::new().await;
     let res = Resource::new(vec![KeyValue::new(
         "service.name",
         "metric-demo",
     )]).merge(&gcp_detector.get_resource());
-    SdkMeterProvider::builder()
+    Ok(SdkMeterProvider::builder()
         .with_resource(res)
         .with_reader(reader)
-        .build()
+        .build())
 }
 
 #[tokio::main]
 #[allow(unused_must_use)]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let gcp_authorizer = GcpAuthorizer::new().await?;
-    let exporter = opentelemetry_rust_exporter_gcp_cm::GCPMetricsExporter::new(gcp_authorizer);
-    let meter_provider = init_metrics(exporter).await;
+    let meter_provider = init_metrics().await?;
 
     let meter = meter_provider.meter("user-event-test");
 

@@ -3,5 +3,6 @@ mod exporter;
 pub mod gcp_authorizer;
 pub mod error;
 pub use exporter::GCPMetricsExporter;
-mod test_utils;
 mod gcloud_sdk;
+#[cfg(test)]
+mod tests;

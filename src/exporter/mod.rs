@@ -37,7 +37,7 @@ pub struct GCPMetricsExporter<'a, A: Authorizer> {
 }
 
 impl<'a, A: Authorizer> GCPMetricsExporter<'a, A> {
-    pub async fn new(authorizer: A) -> Self {
+    pub fn new(authorizer: A) -> Self {
         let scopes = vec!["https://www.googleapis.com/auth/cloud-platform".to_string()];
         
         Self { 
@@ -354,17 +354,5 @@ impl <A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
         // TracepointState automatically unregisters when dropped
         // https://github.com/microsoft/LinuxTracepoints-Rust/blob/main/eventheader/src/native.rs#L618
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_normalize_label_key() {
-        let channel = Channel::from_static("https://monitoring.googleapis.com")
-        .tls_config(ClientTlsConfig::new()).unwrap()
-        .connect().await.unwrap();
     }
 }
