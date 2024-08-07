@@ -194,17 +194,20 @@ impl <'a, A: Authorizer> GCPMetricsExporter<'a, A> {
             // warning!("Unsupported metric data type, ignoring it");
             return None;
         }
-
-            // let _ = gcp_monitoring_client
-            // .get()
-            // .create_metric_descriptor(tonic::Request::new(gcloud_sdk::google::monitoring::v3::CreateMetricDescriptorRequest {
-            //     name: format!("projects/{}", project_id),
-            //     metric_descriptor: metrics.get_metric_descriptor(),
-            // })).await.unwrap();
-
-
-
-
+        let channel = if let Ok(channel) = self.make_chanel().await {
+            channel
+        } else {
+            return None;
+        };
+        let mut msc = MetricServiceClient::new(channel);
+        let project_id = self.authorizer.project_id();
+        let mut req = tonic::Request::new(gcloud_sdk::google::monitoring::v3::CreateMetricDescriptorRequest {
+            name: format!("projects/{}", project_id),
+            metric_descriptor: Some(descriptor.clone()),
+        });
+        self.authorizer.authorize(&mut req, &self.scopes).await.unwrap();
+        msc.create_metric_descriptor(req).await.unwrap();
+        
         //     first_point = data.data_points[0] if len(data.data_points) else None
         //     if isinstance(first_point, NumberDataPoint):
         //         descriptor.value_type = (
@@ -240,7 +243,7 @@ impl <'a, A: Authorizer> GCPMetricsExporter<'a, A> {
         //         return None
         //     self._metric_descriptors[descriptor_type] = response_descriptor
         //     return descriptor
-        unimplemented!()
+        Some(descriptor)
     }
 }
 
@@ -250,7 +253,7 @@ impl <'a, A: Authorizer> GCPMetricsExporter<'a, A> {
 impl <A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
     async fn export(&self, metrics: &mut ResourceMetrics) -> MetricsResult<()> {
         
-        println!("export: {:#?}", metrics);
+        // println!("export: {:#?}", metrics);
         let proto_message: ExportMetricsServiceRequest = (&*metrics).into();
         // println!("export: {}", serde_json::to_string_pretty(&proto_message).unwrap());
 
@@ -259,6 +262,33 @@ impl <A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
         let mut file = std::fs::File::create("metrics.txt").unwrap();
         file.write_all(format!("{:#?}", metrics).as_bytes()).unwrap();
 
+
+        for scope_metric in &metrics.scope_metrics {
+            for metric in &scope_metric.metrics {
+                let descriptor = self.get_metric_descriptor(metric).await;
+                if descriptor.is_none() {
+                    continue;
+                }
+                // let descriptor = descriptor.unwrap();
+                // let time_series = TimeSeries {
+                //     metric: Some(TonicMetricData {
+                //         metric_kind: descriptor.metric_kind.into(),
+                //         value_type: descriptor.value_type.into(),
+                //         labels: Default::default(),
+                //     }),
+                //     resource: Default::default(),
+                //     points: Default::default(),
+                // };
+                // let mut req = tonic::Request::new(CreateTimeSeriesRequest {
+                //     name: format!("projects/{}", self.authorizer.project_id()),
+                //     time_series: vec![time_series],
+                // });
+                // self.authorizer.authorize(&mut req, &self.scopes).await.unwrap();
+                // let channel = self.make_chanel().await.unwrap();
+                // let mut msc = MetricServiceClient::new(channel);
+                // msc.create_time_series(req).await.unwrap();
+            }
+        }
 
 
         // let provider: Arc<dyn TokenProvider> = gcp_auth::provider().await.unwrap();
@@ -270,14 +300,14 @@ impl <A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
         // ).await.unwrap();
 
 
-        let channel = self.make_chanel().await.unwrap();
-        let mut msc = MetricServiceClient::new(channel);
-        let project_id = self.authorizer.project_id();
-        let mut req = tonic::Request::new(gcloud_sdk::google::monitoring::v3::GetMetricDescriptorRequest {
-            name: format!("projects/{}", project_id),
-            // metric_descriptor: metrics.get_metric_descriptor(),
-        });
-        self.authorizer.authorize(&mut req, &self.scopes).await.unwrap();
+        // let channel = self.make_chanel().await.unwrap();
+        // let mut msc = MetricServiceClient::new(channel);
+        // let project_id = self.authorizer.project_id();
+        // let mut req = tonic::Request::new(gcloud_sdk::google::monitoring::v3::GetMetricDescriptorRequest {
+        //     name: format!("projects/{}", project_id),
+        //     // metric_descriptor: metrics.get_metric_descriptor(),
+        // });
+        // self.authorizer.authorize(&mut req, &self.scopes).await.unwrap();
         // msc.get_metric_descriptor(req).await.unwrap();
         
 

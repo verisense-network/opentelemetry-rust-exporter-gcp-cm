@@ -69,7 +69,8 @@ pub struct Date {
 /// This type is more flexible than some applications may want. Make sure to
 /// document and validate your application's limitations.
 #[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Debug, PartialEq, ::prost::Message)]
+#[prost(skip_debug)]
 pub struct DateTime {
     /// Optional. Year of date. Must be from 1 to 9999, or 0 if specifying a
     /// datetime without a year.
@@ -129,7 +130,8 @@ pub mod date_time {
 /// Represents a time zone from the
 /// [IANA Time Zone Database](<https://www.iana.org/time-zones>).
 #[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Debug, PartialEq, ::prost::Message)]
+#[prost(skip_debug)]
 pub struct TimeZone {
     /// IANA Time Zone Database time zone, e.g. "America/New_York".
     #[prost(string, tag = "1")]
@@ -140,7 +142,8 @@ pub struct TimeZone {
 }
 /// Represents an amount of money with its currency type.
 #[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Debug, PartialEq, ::prost::Message)]
+#[prost(skip_debug)]
 pub struct Money {
     /// The three-letter currency code defined in ISO 4217.
     #[prost(string, tag = "1")]
@@ -340,7 +343,8 @@ pub struct Color {
 /// are determined by the service that evaluates it. See the service
 /// documentation for additional information.
 #[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Debug, PartialEq, ::prost::Message)]
+#[prost(skip_debug)]
 pub struct Expr {
     /// Textual representation of an expression in Common Expression Language
     /// syntax.
@@ -475,7 +479,8 @@ pub struct TimeOfDay {
 /// For more guidance on how to use this schema, please see:
 /// <https://support.google.com/business/answer/6397478>
 #[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Debug, PartialEq, ::prost::Message)]
+#[prost(skip_debug)]
 pub struct PostalAddress {
     /// The schema revision of the `PostalAddress`. This must be set to 0, which is
     /// the latest revision.
@@ -577,7 +582,8 @@ pub struct PostalAddress {
 /// <https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/math/BigDecimal.html>
 /// \[decimal.Decimal\]: <https://docs.python.org/3/library/decimal.html>
 #[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Debug, PartialEq, ::prost::Message)]
+#[prost(skip_debug)]
 pub struct Decimal {
     /// The decimal value, as a string.
     ///
@@ -644,7 +650,8 @@ pub struct Decimal {
 }
 /// Localized variant of a text in a particular language.
 #[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Debug, PartialEq, ::prost::Message)]
+#[prost(skip_debug)]
 pub struct LocalizedText {
     /// Localized string in the language corresponding to `language_code' below.
     #[prost(string, tag = "1")]
@@ -742,7 +749,8 @@ impl CalendarPeriod {
 ///   Reference(s):
 ///    - <https://github.com/google/libphonenumber>
 #[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Debug, PartialEq, ::prost::Message)]
+#[prost(skip_debug)]
 pub struct PhoneNumber {
     /// The phone number's extension. The extension is not standardized in ITU
     /// recommendations, except for being defined as a series of numbers with a
@@ -773,7 +781,8 @@ pub mod phone_number {
     /// with different usage and pricing, even if those regions share the same
     /// country calling code (e.g. US and CA).
     #[allow(clippy::derive_partial_eq_without_eq)]
-    #[derive(Clone, PartialEq, ::prost::Message)]
+    #[derive(Clone, Debug, PartialEq, ::prost::Message)]
+#[prost(skip_debug)]
     pub struct ShortCode {
         /// Required. The BCP-47 region code of the location where calls to this
         /// short code can be made, such as "US" and "BB".

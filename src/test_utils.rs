@@ -82,7 +82,7 @@ impl MetricService for MyMetricService {
         let msg_vec = message.encode_to_vec();
         let call = GcmCall { message: msg_vec, user_agent };
         self.calls.write().await.entry("CreateMetricDescriptor".to_string()).or_default().push(call);
-        println!("call fake CreateMetricDescriptor: {:?}", message);
+        // println!("call fake CreateMetricDescriptor: {:?}", message);
         if message.metric_descriptor.is_none() {
             return Err(Status::invalid_argument("metric_descriptor is required"));
         }
@@ -186,13 +186,16 @@ fn init_metrics(res: Resource) -> SdkMeterProvider {
 #[cfg(test)]
 mod tests {
     use crate::gcloud_sdk::{self, google::monitoring::v3::metric_service_client::MetricServiceClient};
+    use darrentsung_debug_parser::parse;
     use metric_service_server::MetricServiceServer;
     use opentelemetry::metrics;
+    use pretty_assertions_sorted::SortedDebug;
     use tonic::transport::Channel;
     use tonic::transport::Server;
 
     use crate::gcloud_sdk::google::monitoring::v3::*;
     use crate::test_utils::*;
+    use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
     
     #[tokio::test]
     async fn test_1() {
@@ -259,7 +262,7 @@ mod tests {
             .with_description("foo")
             .init();
         println!("init histogram");
-        for i in 0..1 {
+        for i in 0..10_000 {
             histogram.record(
                 i as f64,
                 &[
@@ -277,8 +280,51 @@ mod tests {
 
         // self.authorizer.authorize(&mut req, &self.scopes).await.unwrap();
         let res = calls.read().await;
-        res.iter().for_each(|(k, v)| {
-            println!("calls:   {}: {:?}", k, v);
-        });
+        let create_metric_descriptor = res.get("CreateMetricDescriptor").unwrap().iter().map(|v|{
+            let msg = CreateMetricDescriptorRequest::decode(v.message.as_slice()).unwrap();
+            msg
+        }).collect::<Vec<CreateMetricDescriptorRequest>>();
+        // create_metric_descriptor.iter().for_each(|v| {
+        //     println!("create_metric_descriptor -->");
+        //     println!("{:#?}", v);
+        // });
+        let create_metric_descriptor = create_metric_descriptor.get(0).unwrap().clone();
+        
+        let expected_create_metric_descriptor = CreateMetricDescriptorRequest {
+            name: "projects/fake_project_id".to_string(),
+            metric_descriptor: Some(
+                MetricDescriptor {
+                    name: "".to_string(),
+                    r#type: "workload.googleapis.com/myhistogram".to_string(),
+                    labels: vec![
+                        gcloud_sdk::google::api::LabelDescriptor {
+                            key: "int".to_string(),
+                            value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
+                            description: "".to_string(),
+                        },
+                        gcloud_sdk::google::api::LabelDescriptor {
+                            key: "string".to_string(),
+                            value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
+                            description: "".to_string(),
+                        },
+                        gcloud_sdk::google::api::LabelDescriptor {
+                            key: "float".to_string(),
+                            value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
+                            description: "".to_string(),
+                        },
+                    ],
+                    metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative.into(),
+                    value_type: gcloud_sdk::google::api::metric_descriptor::ValueType::Distribution.into(),
+                    unit: "".to_string(),
+                    description: "foo".to_string(),
+                    display_name: "myhistogram1".to_string(),
+                    metadata: None,
+                    launch_stage: gcloud_sdk::google::api::LaunchStage::Unspecified.into(),
+                    monitored_resource_types: Vec::new(),
+                },
+            ),
+        };
+        
+        assert_eq_sorted!(create_metric_descriptor, expected_create_metric_descriptor);
     }
 }

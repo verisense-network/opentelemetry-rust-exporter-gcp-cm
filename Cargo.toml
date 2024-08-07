@@ -29,6 +29,9 @@ opentelemetry_resourcedetector_gcp_rust = "0.7.0"
 unicode-segmentation = "1.11.0"
 tokio = { version = "1.0", features = ["full"] }
 
+[dependencies.darrentsung_debug_parser]
+version = "0.3.1"
+
 [dependencies.hyper]
 version = "1"
 features = [
@@ -37,4 +40,7 @@ features = [
 ]
 
 [dev-dependencies]
+pretty_assertions = "1.4.0"
+# todo contribute to the project to add the sorted feature
+pretty_assertions_sorted = { git = "https://github.com/Sergo007/rust-pretty-assertions-sorted", branch = "main" }
 # tokio = { version = "1.0", features = ["full"] }
