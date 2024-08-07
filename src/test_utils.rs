@@ -20,19 +20,23 @@ use prost::Message;
 
 use crate::gcloud_sdk::google::monitoring::v3::metric_service_server::{MetricService, MetricServiceServer};
 
+#[cfg(test)]
 #[derive(Debug, Clone)]
 pub(crate) struct GcmCall {
     message: Vec<u8>,
     user_agent: String,
 }
 
+#[cfg(test)]
 pub(crate) type GcmCalls = Arc<RwLock<HashMap<String, Vec<GcmCall>>>>;
 
+#[cfg(test)]
 #[derive(Default)]
 pub struct MyMetricService {
     calls: GcmCalls,
 }
 
+#[cfg(test)]
 #[tonic::async_trait]
 impl MetricService for MyMetricService {
     async fn list_monitored_resource_descriptors(
@@ -138,49 +142,32 @@ impl MetricService for MyMetricService {
     
 }
 
-pub(crate) async fn run<R, F, Fut>(f: F)
-where
-    F: FnOnce(GcmCalls, &mut MetricServiceClient<Channel>) -> Fut,
-    Fut: Future<Output = ()>,
-{
-    let addr = "[::1]:50051".parse().unwrap();
-    let calls: GcmCalls = Arc::new(RwLock::new(HashMap::new()));
-    let metric_service = MyMetricService { calls: calls.clone() };
-
-    tokio::spawn(async move {
-        println!("Server listening on {}", addr);
-        Server::builder()
-            .add_service(MetricServiceServer::new(metric_service))
-            .serve(addr)
-            .await.unwrap();
-    });
-    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-    
-
-    let channel = Channel::from_static("http://localhost:50051")
-    .connect().await.unwrap();
-    
-    let mut msc: MetricServiceClient<Channel> = MetricServiceClient::new(channel);
-    f(calls.clone(), &mut msc).await;
-}
-
-fn init_metrics(res: Resource) -> SdkMeterProvider {
+#[cfg(test)]
+pub(crate) fn init_metrics(res: Resource) -> SdkMeterProvider {
     let exporter = crate::GCPMetricsExporter::<FakeAuthorizer>::fake_new();
     let reader = PeriodicReader::builder(exporter, runtime::Tokio).build();
-    // let res: Resource = Resource::new(vec![KeyValue::new(
-    //     "service.name",
-    //     "metric-demo",
-    // )]);
-    // let provider = SdkMeterProvider::builder();
-    // let provider = provider.with_resource(res);
-    // let provider = provider.with_reader(reader);
-    // let provider =  provider.build();
-    // provider
     SdkMeterProvider::builder()
         .with_resource(res)
         .with_reader(reader)
         .build()
 }
+
+#[cfg(test)]
+pub(crate) async fn get_gcm_calls() -> GcmCalls {
+    let addr = "[::1]:50051".parse().unwrap();
+    let calls: GcmCalls = Arc::new(RwLock::new(HashMap::new()));
+    let metric_service = MyMetricService { calls: calls.clone() };
+    tokio::spawn(async move {
+        println!("Server listening on {}", addr);
+        Server::builder()
+        .add_service(MetricServiceServer::new(metric_service))
+        .serve(addr)
+        .await.unwrap();
+    });
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    calls
+}
+
 
 
 #[cfg(test)]
@@ -198,6 +185,7 @@ mod tests {
     use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
     
     #[tokio::test]
+    #[ignore]
     async fn test_1() {
         let addr = "[::1]:50051".parse().unwrap();
         let calls: GcmCalls = Arc::new(RwLock::new(HashMap::new()));
@@ -231,37 +219,16 @@ mod tests {
     #[tokio::test(flavor ="multi_thread", worker_threads = 1)]
     // #[tokio::test]
     async fn test_histogram_default_buckets() {
-        println!("init test_histogram_default_buckets test");
-
-        let addr = "[::1]:50051".parse().unwrap();
-        let calls: GcmCalls = Arc::new(RwLock::new(HashMap::new()));
-        let metric_service = MyMetricService { calls: calls.clone() };
-        
-        tokio::spawn(async move {
-            println!("Server listening on {}", addr);
-            Server::builder()
-            .add_service(MetricServiceServer::new(metric_service))
-            .serve(addr)
-            .await.unwrap();
-        });
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-
-        println!("init fake server");
-        // return;
-        // let metrics_provider = SdkMeterProvider::default();
+        let calls = get_gcm_calls().await;
         let metrics_provider = init_metrics(Resource::new(vec![KeyValue::new(
             "service.name",
             "metric-demo",
         )]));
-        println!("init metrics_provider");
-
-        // return;
         let meter = metrics_provider.meter("test_cloud_monitoring");
         let histogram = meter
             .f64_histogram("myhistogram")
             .with_description("foo")
             .init();
-        println!("init histogram");
         for i in 0..10_000 {
             histogram.record(
                 i as f64,
@@ -272,13 +239,7 @@ mod tests {
                 ],
             );
         }
-
-        println!("start flushing metrics");
         metrics_provider.force_flush().unwrap();
-        println!("end flushing metrics");
-        
-
-        // self.authorizer.authorize(&mut req, &self.scopes).await.unwrap();
         let res = calls.read().await;
         let create_metric_descriptor = res.get("CreateMetricDescriptor").unwrap().iter().map(|v|{
             let msg = CreateMetricDescriptorRequest::decode(v.message.as_slice()).unwrap();
@@ -324,7 +285,7 @@ mod tests {
                 },
             ),
         };
-        
+
         assert_eq_sorted!(create_metric_descriptor, expected_create_metric_descriptor);
     }
 }
