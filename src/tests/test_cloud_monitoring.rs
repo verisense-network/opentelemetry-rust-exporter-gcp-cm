@@ -28,6 +28,7 @@ mod tests {
         let histogram = meter
             .f64_histogram("myhistogram")
             .with_description("foo")
+            .with_unit("{myunit}")
             .init();
         for i in 0..10_000 {
             histogram.record(
@@ -59,12 +60,12 @@ mod tests {
                     r#type: "workload.googleapis.com/myhistogram".to_string(),
                     labels: vec![
                         gcloud_sdk::google::api::LabelDescriptor {
-                            key: "int".to_string(),
+                            key: "string".to_string(),
                             value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                             description: "".to_string(),
                         },
                         gcloud_sdk::google::api::LabelDescriptor {
-                            key: "string".to_string(),
+                            key: "int".to_string(),
                             value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                             description: "".to_string(),
                         },
@@ -76,9 +77,9 @@ mod tests {
                     ],
                     metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative.into(),
                     value_type: gcloud_sdk::google::api::metric_descriptor::ValueType::Distribution.into(),
-                    unit: "".to_string(),
+                    unit: "{myunit}".to_string(),
                     description: "foo".to_string(),
-                    display_name: "myhistogram1".to_string(),
+                    display_name: "myhistogram".to_string(),
                     metadata: None,
                     launch_stage: gcloud_sdk::google::api::LaunchStage::Unspecified.into(),
                     monitored_resource_types: Vec::new(),
