@@ -28,7 +28,7 @@ mod tests {
         let histogram = meter
             .f64_histogram("myhistogram")
             .with_description("foo")
-            .with_unit("{myunit}")
+            .with_unit("myunit")
             .init();
         for i in 0..10_000 {
             histogram.record(
@@ -77,7 +77,7 @@ mod tests {
                     ],
                     metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative.into(),
                     value_type: gcloud_sdk::google::api::metric_descriptor::ValueType::Distribution.into(),
-                    unit: "{myunit}".to_string(),
+                    unit: "myunit".to_string(),
                     description: "foo".to_string(),
                     display_name: "myhistogram".to_string(),
                     metadata: None,
