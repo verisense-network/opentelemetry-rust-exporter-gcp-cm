@@ -1,4 +1,6 @@
+mod to_f64;
 mod utils;
+mod histogram_data_point_to_time_series;
 
 use async_trait::async_trait;
 
@@ -6,6 +8,7 @@ use gcloud_sdk::google::{api::{metric_descriptor, metric_descriptor::MetricKind,
 use gcp_auth::TokenProvider;
 use opentelemetry::{global, metrics::{MetricsError, Result as MetricsResult}};
 use opentelemetry_proto::tonic::{collector::metrics::v1::ExportMetricsServiceRequest, metrics::v1::metric::Data as TonicMetricData};
+use opentelemetry_resourcedetector_gcp_rust::mapping::get_monitored_resource;
 use opentelemetry_sdk::metrics::{
     data::{Metric as OpentelemetrySdkMetric, ResourceMetrics},
     exporter::PushMetricsExporter,
@@ -24,13 +27,16 @@ use utils::{get_data_points_attributes_keys, normalize_label_key};
 
 use core::time;
 use std::{collections::HashSet, fmt::{Debug, Formatter}, sync::Arc, time::Duration};
-
+use rand::Rng;
 use crate::{gcloud_sdk, gcp_authorizer::{Authorizer, FakeAuthorizer, GoogleEnvironment}};
+use std::time::SystemTime;
+use itertools::Itertools;
 
 const UNIQUE_IDENTIFIER_KEY: &str = "opentelemetry_id";
 pub struct GCPMetricsExporter<'a, A: Authorizer> {
     prefix: String,
-    unique_identifier: bool,
+    add_unique_identifier: bool,
+    unique_identifier: String,
     authorizer: A,
     is_test_env: bool,
     scopes: &'a [&'a str],
@@ -39,10 +45,11 @@ pub struct GCPMetricsExporter<'a, A: Authorizer> {
 impl<'a, A: Authorizer> GCPMetricsExporter<'a, A> {
     pub fn new(authorizer: A) -> Self {
         let scopes = vec!["https://www.googleapis.com/auth/cloud-platform".to_string()];
-        
+        let my_rundom = format!("{:08x}", rand::thread_rng().gen_range(0..16_u32.pow(8)));
         Self { 
             prefix: "workload.googleapis.com".to_string(), 
-            unique_identifier: false, 
+            add_unique_identifier: false, 
+            unique_identifier: my_rundom,
             authorizer, 
             is_test_env: false,
             scopes: &["https://www.googleapis.com/auth/cloud-platform"],
@@ -51,10 +58,12 @@ impl<'a, A: Authorizer> GCPMetricsExporter<'a, A> {
 
     pub fn fake_new() -> GCPMetricsExporter<'a, FakeAuthorizer> {
         let scopes = vec!["https://www.googleapis.com/auth/cloud-platform".to_string()];
+        let my_rundom = format!("{:08x}", rand::thread_rng().gen_range(0..u32::MAX));
         GCPMetricsExporter { 
-            prefix: "workload.googleapis.com".to_string(), 
-            unique_identifier: false, 
-            authorizer: FakeAuthorizer {}, 
+            prefix: "workload.googleapis.com".to_string(),
+            unique_identifier: my_rundom,
+            add_unique_identifier: false, 
+            authorizer: FakeAuthorizer {},
             is_test_env: true,
             scopes: &["https://www.googleapis.com/auth/cloud-platform"],
         }
@@ -126,7 +135,7 @@ impl <'a, A: Authorizer> GCPMetricsExporter<'a, A> {
             ..Default::default()
         };
         let seen_keys: HashSet<String> = get_data_points_attributes_keys(metric.data.as_any());
-        // let metric_data: Option<TonicMetricData> = metric.data.as_any().try_into().ok();
+
         for key in &seen_keys {
             descriptor.labels.push(LabelDescriptor {
                 key: normalize_label_key(key),
@@ -134,7 +143,8 @@ impl <'a, A: Authorizer> GCPMetricsExporter<'a, A> {
             });
         }
 
-        if self.unique_identifier {
+        // todo add unique identifier
+        if self.add_unique_identifier {
             descriptor.labels.push(LabelDescriptor {
                 key: UNIQUE_IDENTIFIER_KEY.to_string(),
                 ..Default::default()
@@ -190,59 +200,51 @@ impl <'a, A: Authorizer> GCPMetricsExporter<'a, A> {
             descriptor.metric_kind = MetricKind::Gauge.into();
             descriptor.value_type = metric_descriptor::ValueType::Double.into();
         } else {
-            global::handle_error(MetricsError::Other("Unsupported metric data type, ignoring it".into()));
+            global::handle_error(MetricsError::Other("GCPMetricsExporter: Unsupported metric data type, ignoring it".into()));
             // warning!("Unsupported metric data type, ignoring it");
             return None;
         }
-        let channel = if let Ok(channel) = self.make_chanel().await {
-            channel
-        } else {
-            return None;
+
+        let project_id = self.authorizer.project_id();
+        let channel = match self.make_chanel().await {
+            Ok(channel) => channel,
+            Err(err) => {
+                global::handle_error(MetricsError::Other(format!("GCPMetricsExporter: Cant init google services grpc transport channel [Make issue with this case in github repo]: {:?}", err)));
+                return None;
+            }
         };
         let mut msc = MetricServiceClient::new(channel);
-        let project_id = self.authorizer.project_id();
-        let mut req = tonic::Request::new(gcloud_sdk::google::monitoring::v3::CreateMetricDescriptorRequest {
-            name: format!("projects/{}", project_id),
-            metric_descriptor: Some(descriptor.clone()),
-        });
-        self.authorizer.authorize(&mut req, &self.scopes).await.unwrap();
-        msc.create_metric_descriptor(req).await.unwrap();
-        
-        //     first_point = data.data_points[0] if len(data.data_points) else None
-        //     if isinstance(first_point, NumberDataPoint):
-        //         descriptor.value_type = (
-        //             MetricDescriptor.ValueType.INT64
-        //             if isinstance(first_point.value, int)
-        //             else MetricDescriptor.ValueType.DOUBLE
-        //         )
-        //     elif isinstance(first_point, HistogramDataPoint):
-        //         descriptor.value_type = MetricDescriptor.ValueType.DISTRIBUTION
-        //     elif first_point is None:
-        //         pass
-        //     else:
-        //         # Exhaustive check
-        //         _ = first_point
-        //         logger.warning(
-        //             "Unsupported metric value type %s, ignoring it",
-        //             type(first_point).__name__,
-        //         )
-
-        //     try:
-        //         response_descriptor = self.client.create_metric_descriptor(
-        //             CreateMetricDescriptorRequest(
-        //                 name=self.project_name, metric_descriptor=descriptor
-        //             )
-        //         )
-        //     # pylint: disable=broad-except
-        //     except Exception as ex:
-        //         logger.error(
-        //             "Failed to create metric descriptor %s",
-        //             descriptor,
-        //             exc_info=ex,
-        //         )
-        //         return None
+        let mut iteration = 0;
+        loop {
+            iteration += 1;
+            if iteration > 101 {
+                global::handle_error(MetricsError::Other("GCPMetricsExporter: Cant create_metric_descriptor".into()));
+                break;
+            }           
+            let mut req = tonic::Request::new(gcloud_sdk::google::monitoring::v3::CreateMetricDescriptorRequest {
+                name: format!("projects/{}", project_id),
+                metric_descriptor: Some(descriptor.clone()),
+            });
+            if let Err(err) = self.authorizer.authorize(&mut req, &self.scopes).await {
+                tokio::time::sleep(Duration::from_millis(200)).await;
+                global::handle_error(MetricsError::Other(format!("GCPMetricsExporter: cant authorize: {:?}", err)));
+                return None;
+            }
+            match msc.create_metric_descriptor(req).await {
+                Ok(_resp) => break,
+                Err(err) => {
+                    // logger.error(
+                    //     "Failed to create metric descriptor %s",
+                    //     descriptor,
+                    //     exc_info=ex,
+                    // )
+                    tokio::time::sleep(Duration::from_millis(200)).await;
+                    global::handle_error(MetricsError::Other(format!("GCPMetricsExporter: Retry send create_metric_descriptor: {:?}", err)));
+                    continue;
+                }
+            }
+        }
         //     self._metric_descriptors[descriptor_type] = response_descriptor
-        //     return descriptor
         Some(descriptor)
     }
 }
@@ -253,96 +255,118 @@ impl <'a, A: Authorizer> GCPMetricsExporter<'a, A> {
 impl <A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
     async fn export(&self, metrics: &mut ResourceMetrics) -> MetricsResult<()> {
         
-        // println!("export: {:#?}", metrics);
-        let proto_message: ExportMetricsServiceRequest = (&*metrics).into();
-        // println!("export: {}", serde_json::to_string_pretty(&proto_message).unwrap());
+        // // println!("export: {:#?}", metrics);
+        // let proto_message: ExportMetricsServiceRequest = (&*metrics).into();
+        // // println!("export: {}", serde_json::to_string_pretty(&proto_message).unwrap());
 
 
-        use std::io::Write;
-        let mut file = std::fs::File::create("metrics.txt").unwrap();
-        file.write_all(format!("{:#?}", metrics).as_bytes()).unwrap();
+        // use std::io::Write;
+        // let mut file = std::fs::File::create("metrics.txt").unwrap();
+        // file.write_all(format!("{:#?}", metrics).as_bytes()).unwrap();
 
+        let monitored_resource_data: Option<gcloud_sdk::google::api::MonitoredResource> = get_monitored_resource(metrics.resource.clone()).map(|v| {
+            gcloud_sdk::google::api::MonitoredResource {
+                r#type: v.r#type,
+                labels: v.labels,
+            }
+        });
 
+        let mut all_series = Vec::<TimeSeries>::new();
         for scope_metric in &metrics.scope_metrics {
             for metric in &scope_metric.metrics {
-                let descriptor = self.get_metric_descriptor(metric).await;
-                if descriptor.is_none() {
+                let descriptor: MetricDescriptor = if let Some(descriptor) = self.get_metric_descriptor(metric).await {
+                    descriptor
+                } else {
                     continue;
-                }
-                // let descriptor = descriptor.unwrap();
-                // let time_series = TimeSeries {
-                //     metric: Some(TonicMetricData {
-                //         metric_kind: descriptor.metric_kind.into(),
-                //         value_type: descriptor.value_type.into(),
-                //         labels: Default::default(),
-                //     }),
-                //     resource: Default::default(),
-                //     points: Default::default(),
-                // };
-                // let mut req = tonic::Request::new(CreateTimeSeriesRequest {
-                //     name: format!("projects/{}", self.authorizer.project_id()),
-                //     time_series: vec![time_series],
-                // });
-                // self.authorizer.authorize(&mut req, &self.scopes).await.unwrap();
-                // let channel = self.make_chanel().await.unwrap();
-                // let mut msc = MetricServiceClient::new(channel);
-                // msc.create_time_series(req).await.unwrap();
+                };
+                let data = metric.data.as_any();
+                if let Some(v) = data.downcast_ref::<SdkHistogram<i64>>() {
+                    for data_point in &v.data_points { 
+                        all_series.push(histogram_data_point_to_time_series::convert(data_point, &descriptor, &monitored_resource_data));
+                    }
+                } else if let Some(v) = data.downcast_ref::<SdkHistogram<u64>>() {
+                    for data_point in &v.data_points { 
+                        all_series.push(histogram_data_point_to_time_series::convert(data_point, &descriptor, &monitored_resource_data));
+                    }
+                } else if let Some(v) = data.downcast_ref::<SdkHistogram<f64>>() {
+                    for data_point in &v.data_points { 
+                        all_series.push(histogram_data_point_to_time_series::convert(data_point, &descriptor, &monitored_resource_data));
+                    }
+                } else if let Some(v) = data.downcast_ref::<SdkExponentialHistogram<i64>>() {
+                    let data_points = &v.data_points;
+                    
+                } else if let Some(v) = data.downcast_ref::<SdkExponentialHistogram<u64>>() {
+                    let data_points = &v.data_points;
+                    
+                } else if let Some(v) = data.downcast_ref::<SdkExponentialHistogram<f64>>() {
+                    let data_points = &v.data_points;
+                    
+                } else if let Some(v) = data.downcast_ref::<SdkSum<u64>>() {
+                    let data_points = &v.data_points;
+                    
+                } else if let Some(v) = data.downcast_ref::<SdkSum<i64>>() {
+                    let data_points = &v.data_points;
+                    
+                } else if let Some(v) = data.downcast_ref::<SdkSum<f64>>() {
+                    let data_points = &v.data_points;
+                    
+                } else if let Some(v) = data.downcast_ref::<SdkGauge<u64>>() {
+                    let data_points = &v.data_points;
+                    
+                } else if let Some(v) = data.downcast_ref::<SdkGauge<i64>>() {
+                    let data_points = &v.data_points;
+                    
+                } else if let Some(v) = data.downcast_ref::<SdkGauge<f64>>() {
+                    let data_points = &v.data_points;
+                    
+                } else {
+                    global::handle_error(MetricsError::Other("GCPMetricsExporter: Unsupported metric data type, ignoring it".into()));
+                };
+
             }
         }
 
-
-        // let provider: Arc<dyn TokenProvider> = gcp_auth::provider().await.unwrap();
-        // let gcp_monitoring_client = GoogleApi::from_function(
-        //     MetricServiceClient::new,
-        //     "https://monitoring.googleapis.com",
-        //     // cloud resource prefix: used only for some of the APIs (such as Firestore)
-        //     None,
-        // ).await.unwrap();
-
-
-        // let channel = self.make_chanel().await.unwrap();
-        // let mut msc = MetricServiceClient::new(channel);
-        // let project_id = self.authorizer.project_id();
-        // let mut req = tonic::Request::new(gcloud_sdk::google::monitoring::v3::GetMetricDescriptorRequest {
-        //     name: format!("projects/{}", project_id),
-        //     // metric_descriptor: metrics.get_metric_descriptor(),
-        // });
-        // self.authorizer.authorize(&mut req, &self.scopes).await.unwrap();
-        // msc.get_metric_descriptor(req).await.unwrap();
-        
-
-        // let mut timeSeries: Vec<TimeSeries> = Vec::new();
-
-        // let _ = gcp_monitoring_client
-        //     .get()
-        //     .get_metric_descriptor(tonic::Request::new(gcloud_sdk::google::monitoring::v3::GetMetricDescriptorRequest {
-        //         name: format!("projects/{}", project_id),
-        //         metric_descriptor: metrics.get_metric_descriptor(),
-        //     })).await.unwrap();
-        
-        // let _ = gcp_monitoring_client
-        //     .get()
-        //     .create_metric_descriptor(tonic::Request::new(gcloud_sdk::google::monitoring::v3::CreateMetricDescriptorRequest {
-        //         name: format!("projects/{}", project_id),
-        //         metric_descriptor: metrics.get_metric_descriptor(),
-        //     })).await.unwrap();
-
-        // for scope_metrics in &metrics.scope_metrics {
-        //     for metric in &scope_metrics.metrics {
-        //         let time_series = transform_metric(metric, &project_id);
-        //         timeSeries.push(time_series);
-        //     }
-        // }
-
-        // let _ = gcp_monitoring_client
-        //     .get()          
-        //     .create_time_series(tonic::Request::new(CreateTimeSeriesRequest {
-        //         name: format!("projects/{}", project_id),
-        //         time_series: transform(metrics, &project_id),
-        //     })).await.unwrap();
-        // 
-
-        
+        let chunked_all_series: Vec<Vec<TimeSeries>> = all_series
+            .into_iter()
+            .chunks(200)
+            .into_iter()
+            .map(|chunk| chunk.collect())
+            .collect();
+        // todo add more usefull error handling and retry
+        for chunk in chunked_all_series {
+            let mut iteration = 0;
+            loop {
+                iteration += 1;
+                if iteration > 101 {
+                    global::handle_error(MetricsError::Other("GCPMetricsExporter: Cant send time series".into()));
+                    break;
+                }           
+                let mut req = tonic::Request::new(CreateTimeSeriesRequest {
+                    name: format!("projects/{}", self.authorizer.project_id()),
+                    time_series: chunk.clone(),
+                });
+                if let Err(err) = self.authorizer.authorize(&mut req, &self.scopes).await {
+                    tokio::time::sleep(Duration::from_millis(200)).await;
+                    global::handle_error(MetricsError::Other(format!("GCPMetricsExporter: cant authorize: {:?}", err)));
+                    return Ok(());
+                }
+                let channel = match self.make_chanel().await {
+                    Ok(channel) => channel,
+                    Err(err) => {
+                        global::handle_error(MetricsError::Other(format!("GCPMetricsExporter: Cant init google services grpc transport channel [Make issue with this case in github repo]: {:?}", err)));
+                        return Ok(());
+                    }
+                };
+                let mut msc = MetricServiceClient::new(channel);
+                if let Err(err) = msc.create_time_series(req).await {
+                    tokio::time::sleep(Duration::from_millis(200)).await;
+                    global::handle_error(MetricsError::Other(format!("GCPMetricsExporter: Retry send time series: {:?}", err)));
+                    continue;
+                } else {
+                    break;
+                }
+            }
+        }
         Ok(())
     }
 

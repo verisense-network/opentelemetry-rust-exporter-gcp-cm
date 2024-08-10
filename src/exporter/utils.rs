@@ -33,7 +33,7 @@ pub fn get_data_points_attributes_keys(data: &dyn Any) -> HashSet<String> {
     } else if let Some(v) = data.downcast_ref::<SdkGauge<f64>>() {
        v.data_points.iter().map(|point| point.attributes.iter().map(|x| x.key.to_string())).flatten().collect()
     } else {
-        global::handle_error(MetricsError::Other("unknown aggregator".into()));
+        global::handle_error(MetricsError::Other("Unsupported metric data type, ignoring it".into()));
         vec![]
     };
     HashSet::from_iter(attributes_keys.into_iter())
