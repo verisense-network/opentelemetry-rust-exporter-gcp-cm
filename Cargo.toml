@@ -25,7 +25,7 @@ gcp_auth = "0.12"
 prost = "0.13"
 prost-types = "0.13"
 tonic = { version = "0.12", features = ["gzip", "tls", "tls-roots", "transport"] }
-opentelemetry_resourcedetector_gcp_rust = "0.7.0"
+opentelemetry_resourcedetector_gcp_rust = "0.11.0"
 unicode-segmentation = "1.11.0"
 tokio = { version = "1.0", features = ["full"] }
 

@@ -1,6 +1,7 @@
 mod to_f64;
 mod utils;
 mod histogram_data_point_to_time_series;
+mod data_point_to_time_series;
 
 use async_trait::async_trait;
 
@@ -292,33 +293,42 @@ impl <A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
                     for data_point in &v.data_points { 
                         all_series.push(histogram_data_point_to_time_series::convert(data_point, &descriptor, &monitored_resource_data));
                     }
-                } else if let Some(v) = data.downcast_ref::<SdkExponentialHistogram<i64>>() {
-                    let data_points = &v.data_points;
-                    
-                } else if let Some(v) = data.downcast_ref::<SdkExponentialHistogram<u64>>() {
-                    let data_points = &v.data_points;
-                    
-                } else if let Some(v) = data.downcast_ref::<SdkExponentialHistogram<f64>>() {
-                    let data_points = &v.data_points;
-                    
+                // } else if let Some(v) = data.downcast_ref::<SdkExponentialHistogram<i64>>() {
+                //     for data_point in &v.data_points { 
+                //         all_series.push(histogram_data_point_to_time_series::convert_exponential(data_point, &descriptor, &monitored_resource_data));
+                //     }          
+                // } else if let Some(v) = data.downcast_ref::<SdkExponentialHistogram<u64>>() {
+                //     for data_point in &v.data_points { 
+                //         all_series.push(histogram_data_point_to_time_series::convert_exponential(data_point, &descriptor, &monitored_resource_data));
+                //     }
+                // } else if let Some(v) = data.downcast_ref::<SdkExponentialHistogram<f64>>() {
+                //     for data_point in &v.data_points { 
+                //         all_series.push(histogram_data_point_to_time_series::convert_exponential(data_point, &descriptor, &monitored_resource_data));
+                //     }
                 } else if let Some(v) = data.downcast_ref::<SdkSum<u64>>() {
-                    let data_points = &v.data_points;
-                    
+                    for data_point in &v.data_points { 
+                        all_series.push(data_point_to_time_series::convert_f64(data_point, &descriptor, &monitored_resource_data));
+                    }
                 } else if let Some(v) = data.downcast_ref::<SdkSum<i64>>() {
-                    let data_points = &v.data_points;
-                    
+                    for data_point in &v.data_points { 
+                        all_series.push(data_point_to_time_series::convert_i64(data_point, &descriptor, &monitored_resource_data));
+                    }
                 } else if let Some(v) = data.downcast_ref::<SdkSum<f64>>() {
-                    let data_points = &v.data_points;
-                    
+                    for data_point in &v.data_points { 
+                        all_series.push(data_point_to_time_series::convert_f64(data_point, &descriptor, &monitored_resource_data));
+                    }
                 } else if let Some(v) = data.downcast_ref::<SdkGauge<u64>>() {
-                    let data_points = &v.data_points;
-                    
+                    for data_point in &v.data_points { 
+                        all_series.push(data_point_to_time_series::convert_f64(data_point, &descriptor, &monitored_resource_data));
+                    }
                 } else if let Some(v) = data.downcast_ref::<SdkGauge<i64>>() {
-                    let data_points = &v.data_points;
-                    
+                    for data_point in &v.data_points { 
+                        all_series.push(data_point_to_time_series::convert_i64(data_point, &descriptor, &monitored_resource_data));
+                    }
                 } else if let Some(v) = data.downcast_ref::<SdkGauge<f64>>() {
-                    let data_points = &v.data_points;
-                    
+                    for data_point in &v.data_points { 
+                        all_series.push(data_point_to_time_series::convert_f64(data_point, &descriptor, &monitored_resource_data));
+                    }
                 } else {
                     global::handle_error(MetricsError::Other("GCPMetricsExporter: Unsupported metric data type, ignoring it".into()));
                 };

@@ -19,3 +19,13 @@ impl ToF64 for i64 {
         self as f64
     }
 }
+
+pub trait ToI64 {
+    fn to_i64(self) -> i64;
+}
+
+impl ToI64 for i64 {
+    fn to_i64(self) -> i64 {
+        self
+    }
+}
