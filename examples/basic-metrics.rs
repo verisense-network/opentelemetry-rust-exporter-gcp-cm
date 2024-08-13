@@ -3,7 +3,7 @@ use opentelemetry::{
     metrics::MeterProvider as _,
     KeyValue,
 };
-use opentelemetry_rust_exporter_gcp_cm::gcp_authorizer::GcpAuthorizer;
+use opentelemetry_rust_exporter_gcp_cm::{GCPMetricsExporterConfig, GCPMetricsExporter};
 use opentelemetry_sdk::{
     metrics::{PeriodicReader, SdkMeterProvider},
     runtime, Resource,
@@ -13,14 +13,22 @@ use std::time::Duration;
 use opentelemetry_resourcedetector_gcp_rust::GoogleCloudResourceDetector;
 
 async fn init_metrics() ->  Result<SdkMeterProvider, Box<dyn std::error::Error>> {
-    let gcp_authorizer = GcpAuthorizer::new().await?;
-    let exporter = opentelemetry_rust_exporter_gcp_cm::GCPMetricsExporter::new(gcp_authorizer);
+    std::env::set_var("GOOGLE_APPLICATION_CREDENTIALS", "/Users/serhiiyatsina/projects/cybx/opentelemetry/opentelemetry-rust-exporter-gcp-cm/.secrets/977645940426-compute@developer.gserviceaccount.com.json");
+    
+    let mut cfg = GCPMetricsExporterConfig::default();
+    cfg.prefix = "custom.googleapis.com/opencensus/cybx.io/test_service".to_string();
+
+    let exporter = GCPMetricsExporter::new(cfg).await?;
     let reader = PeriodicReader::builder(exporter, runtime::Tokio).build();
-    let gcp_detector = GoogleCloudResourceDetector::new().await;
-    let res = Resource::new(vec![KeyValue::new(
+    let _gcp_detector = GoogleCloudResourceDetector::new().await;
+    // https://cloud.google.com/monitoring/api/resources#tag_global
+    let rname = Resource::new(vec![KeyValue::new(
         "service.name",
-        "metric-demo",
-    )]).merge(&gcp_detector.get_resource());
+        "metric-from-rust",
+    )]);
+    let res = Resource::default().merge(&rname);
+    println!("{:#?}", res);
+    // )]).merge(&gcp_detector.get_resource());
     Ok(SdkMeterProvider::builder()
         .with_resource(res)
         .with_reader(reader)

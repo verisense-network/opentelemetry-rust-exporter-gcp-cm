@@ -7,6 +7,7 @@ use async_trait::async_trait;
 
 use gcloud_sdk::google::{api::{metric_descriptor, metric_descriptor::MetricKind, LabelDescriptor, MetricDescriptor}, monitoring::v3::{metric_service_client::MetricServiceClient, CreateTimeSeriesRequest, TimeSeries}};
 use gcp_auth::TokenProvider;
+use hyper::Error;
 use opentelemetry::{global, metrics::{MetricsError, Result as MetricsResult}};
 use opentelemetry_proto::tonic::{collector::metrics::v1::ExportMetricsServiceRequest, metrics::v1::metric::Data as TonicMetricData};
 use opentelemetry_resourcedetector_gcp_rust::mapping::get_monitored_resource;
@@ -30,47 +31,63 @@ use utils::{get_data_points_attributes_keys, normalize_label_key};
 use core::time;
 use std::{collections::{HashMap, HashSet}, fmt::{Debug, Formatter}, sync::Arc, time::Duration};
 use rand::Rng;
-use crate::{gcloud_sdk, gcp_authorizer::{Authorizer, FakeAuthorizer, GoogleEnvironment}};
+use crate::{gcloud_sdk, gcp_authorizer::{Authorizer, FakeAuthorizer, GcpAuthorizer, GoogleEnvironment}};
 use std::time::SystemTime;
 use itertools::Itertools;
 
-const UNIQUE_IDENTIFIER_KEY: &str = "opentelemetry_id";
+pub(crate) const UNIQUE_IDENTIFIER_KEY: &str = "opentelemetry_id";
+
+/// Implementation of Metrics Exporter to Google Cloud Monitoring.
 pub struct GCPMetricsExporter<'a, A: Authorizer> {
     prefix: String,
+    project_id: Option<String>,
     add_unique_identifier: bool,
     unique_identifier: String,
     authorizer: A,
     is_test_env: bool,
     scopes: &'a [&'a str],
-    metric_descriptors: RwLock<HashMap<String, MetricDescriptor>>,
+    metric_descriptors: Arc<RwLock<HashMap<String, MetricDescriptor>>>,
+}
+
+/// Configuration for the GCP metrics exporter.
+pub struct GCPMetricsExporterConfig {
+    /// prefix: the prefix of the metric. It is "workload.googleapis.com" by
+    ///     default if not specified.
+    pub prefix: String,
+    /// project id of your Google Cloud project. It is get from GcpAuthorizer by default.
+    pub project_id: Option<String>,
+    /// add_unique_identifier: Add an identifier to each exporter metric. This
+    ///     must be used when there exist two (or more) exporters that may
+    ///     export to the same metric name within WRITE_INTERVAL seconds of
+    ///     each other.
+    pub add_unique_identifier: bool,
+}
+
+impl Default for GCPMetricsExporterConfig {
+    fn default() -> Self {
+        Self { 
+            prefix: "workload.googleapis.com".to_string(), 
+            project_id: None,
+            add_unique_identifier: false,
+        }
+    }
 }
 
 impl<'a, A: Authorizer> GCPMetricsExporter<'a, A> {
-    pub fn new(authorizer: A) -> Self {
-        let scopes = vec!["https://www.googleapis.com/auth/cloud-platform".to_string()];
-        let my_rundom = format!("{:08x}", rand::thread_rng().gen_range(0..16_u32.pow(8)));
-        Self { 
-            prefix: "workload.googleapis.com".to_string(), 
-            add_unique_identifier: false, 
-            unique_identifier: my_rundom,
-            authorizer, 
-            is_test_env: false,
-            scopes: &["https://www.googleapis.com/auth/cloud-platform"],
-            metric_descriptors: RwLock::new(HashMap::new()),
-        }
-    }
 
-    pub fn fake_new() -> GCPMetricsExporter<'a, FakeAuthorizer> {
+    pub fn new_with_custom_auth(authorizer: A, config: GCPMetricsExporterConfig) -> Self {
         let scopes = vec!["https://www.googleapis.com/auth/cloud-platform".to_string()];
-        let my_rundom = format!("{:08x}", rand::thread_rng().gen_range(0..u32::MAX));
-        GCPMetricsExporter { 
-            prefix: "workload.googleapis.com".to_string(),
+        // let my_rundom = format!("{:08x}", rand::thread_rng().gen_range(0..u32::MAX));
+        let my_rundom = format!("{:?}", SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_nanos());
+        Self {
+            prefix: config.prefix,
+            add_unique_identifier: config.add_unique_identifier,
+            project_id: config.project_id,
             unique_identifier: my_rundom,
-            add_unique_identifier: false, 
-            authorizer: FakeAuthorizer {},
-            is_test_env: true,
+            authorizer,
+            is_test_env: cfg!(test),
             scopes: &["https://www.googleapis.com/auth/cloud-platform"],
-            metric_descriptors: RwLock::new(HashMap::new()),
+            metric_descriptors: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -85,6 +102,19 @@ impl<'a, A: Authorizer> GCPMetricsExporter<'a, A> {
         } else {
             GoogleEnvironment::init_google_services_channel("https://monitoring.googleapis.com").await
         }
+    }
+}
+
+impl<'a> GCPMetricsExporter<'a, GcpAuthorizer> {
+    pub async fn new(config: GCPMetricsExporterConfig) -> Result<GCPMetricsExporter<'a, GcpAuthorizer>, gcp_auth::Error> {
+        let auth = GcpAuthorizer::new().await?;
+        Ok(GCPMetricsExporter::new_with_custom_auth(auth, config))
+    }
+}
+
+impl<'a> GCPMetricsExporter<'a, FakeAuthorizer> {
+    pub fn fake_new() -> GCPMetricsExporter<'a, FakeAuthorizer> {
+        GCPMetricsExporter::new_with_custom_auth(FakeAuthorizer::new(), GCPMetricsExporterConfig::default())
     }
 }
 
@@ -215,7 +245,7 @@ impl <'a, A: Authorizer> GCPMetricsExporter<'a, A> {
             return None;
         }
 
-        let project_id = self.authorizer.project_id();
+        let project_id = self.project_id.clone().unwrap_or(self.authorizer.project_id().to_string());
         let channel = match self.make_chanel().await {
             Ok(channel) => channel,
             Err(err) => {
@@ -248,9 +278,15 @@ impl <'a, A: Authorizer> GCPMetricsExporter<'a, A> {
                     //     descriptor,
                     //     exc_info=ex,
                     // )
-                    tokio::time::sleep(Duration::from_millis(200)).await;
                     global::handle_error(MetricsError::Other(format!("GCPMetricsExporter: Retry send create_metric_descriptor: {:?}", err)));
-                    continue;
+                    match err.code() {
+                        tonic::Code::Unavailable | tonic::Code::DataLoss | tonic::Code::DeadlineExceeded | tonic::Code::Aborted | tonic::Code::Internal | tonic::Code::FailedPrecondition => {
+                            tokio::time::sleep(Duration::from_millis(200)).await;
+                            continue
+                        },
+                        _ => break,
+                        
+                    }
                 }
             }
         }
@@ -296,15 +332,15 @@ impl <A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
                 let data = metric.data.as_any();
                 if let Some(v) = data.downcast_ref::<SdkHistogram<i64>>() {
                     for data_point in &v.data_points { 
-                        all_series.push(histogram_data_point_to_time_series::convert(data_point, &descriptor, &monitored_resource_data));
+                        all_series.push(histogram_data_point_to_time_series::convert(data_point, &descriptor, &monitored_resource_data, self.add_unique_identifier, self.unique_identifier.clone()));
                     }
                 } else if let Some(v) = data.downcast_ref::<SdkHistogram<u64>>() {
                     for data_point in &v.data_points { 
-                        all_series.push(histogram_data_point_to_time_series::convert(data_point, &descriptor, &monitored_resource_data));
+                        all_series.push(histogram_data_point_to_time_series::convert(data_point, &descriptor, &monitored_resource_data, self.add_unique_identifier, self.unique_identifier.clone()));
                     }
                 } else if let Some(v) = data.downcast_ref::<SdkHistogram<f64>>() {
                     for data_point in &v.data_points { 
-                        all_series.push(histogram_data_point_to_time_series::convert(data_point, &descriptor, &monitored_resource_data));
+                        all_series.push(histogram_data_point_to_time_series::convert(data_point, &descriptor, &monitored_resource_data, self.add_unique_identifier, self.unique_identifier.clone()));
                     }
                 // } else if let Some(v) = data.downcast_ref::<SdkExponentialHistogram<i64>>() {
                 //     for data_point in &v.data_points { 
@@ -320,27 +356,27 @@ impl <A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
                 //     }
                 } else if let Some(v) = data.downcast_ref::<SdkSum<u64>>() {
                     for data_point in &v.data_points { 
-                        all_series.push(data_point_to_time_series::convert_i64(data_point, &descriptor, &monitored_resource_data));
+                        all_series.push(data_point_to_time_series::convert_i64(data_point, &descriptor, &monitored_resource_data, self.add_unique_identifier, self.unique_identifier.clone()));
                     }
                 } else if let Some(v) = data.downcast_ref::<SdkSum<i64>>() {
                     for data_point in &v.data_points { 
-                        all_series.push(data_point_to_time_series::convert_i64(data_point, &descriptor, &monitored_resource_data));
+                        all_series.push(data_point_to_time_series::convert_i64(data_point, &descriptor, &monitored_resource_data, self.add_unique_identifier, self.unique_identifier.clone()));
                     }
                 } else if let Some(v) = data.downcast_ref::<SdkSum<f64>>() {
                     for data_point in &v.data_points { 
-                        all_series.push(data_point_to_time_series::convert_f64(data_point, &descriptor, &monitored_resource_data));
+                        all_series.push(data_point_to_time_series::convert_f64(data_point, &descriptor, &monitored_resource_data, self.add_unique_identifier, self.unique_identifier.clone()));
                     }
                 } else if let Some(v) = data.downcast_ref::<SdkGauge<u64>>() {
                     for data_point in &v.data_points { 
-                        all_series.push(data_point_to_time_series::convert_i64(data_point, &descriptor, &monitored_resource_data));
+                        all_series.push(data_point_to_time_series::convert_i64(data_point, &descriptor, &monitored_resource_data, self.add_unique_identifier, self.unique_identifier.clone()));
                     }
                 } else if let Some(v) = data.downcast_ref::<SdkGauge<i64>>() {
                     for data_point in &v.data_points { 
-                        all_series.push(data_point_to_time_series::convert_i64(data_point, &descriptor, &monitored_resource_data));
+                        all_series.push(data_point_to_time_series::convert_i64(data_point, &descriptor, &monitored_resource_data, self.add_unique_identifier, self.unique_identifier.clone()));
                     }
                 } else if let Some(v) = data.downcast_ref::<SdkGauge<f64>>() {
                     for data_point in &v.data_points { 
-                        all_series.push(data_point_to_time_series::convert_f64(data_point, &descriptor, &monitored_resource_data));
+                        all_series.push(data_point_to_time_series::convert_f64(data_point, &descriptor, &monitored_resource_data, self.add_unique_identifier, self.unique_identifier.clone()));
                     }
                 } else {
                     global::handle_error(MetricsError::Other("GCPMetricsExporter: Unsupported metric data type, ignoring it".into()));
@@ -356,6 +392,7 @@ impl <A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
             .map(|chunk| chunk.collect())
             .collect();
         // todo add more usefull error handling and retry
+        let project_id = self.project_id.clone().unwrap_or(self.authorizer.project_id().to_string());
         for chunk in chunked_all_series {
             let mut iteration = 0;
             loop {
@@ -363,9 +400,10 @@ impl <A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
                 if iteration > 101 {
                     global::handle_error(MetricsError::Other("GCPMetricsExporter: Cant send time series".into()));
                     return Ok(());
-                }           
+                }
+                println!("chunk: {:#?}", chunk);
                 let mut req = tonic::Request::new(CreateTimeSeriesRequest {
-                    name: format!("projects/{}", self.authorizer.project_id()),
+                    name: format!("projects/{}", project_id),
                     time_series: chunk.clone(),
                 });
                 if let Err(err) = self.authorizer.authorize(&mut req, &self.scopes).await {
@@ -381,9 +419,15 @@ impl <A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
                 };
                 let mut msc = MetricServiceClient::new(channel);
                 if let Err(err) = msc.create_time_series(req).await {
-                    tokio::time::sleep(Duration::from_millis(200)).await;
                     global::handle_error(MetricsError::Other(format!("GCPMetricsExporter: Retry send time series: {:?}", err)));
-                    continue;
+                    match err.code() {
+                        tonic::Code::Unavailable | tonic::Code::DataLoss | tonic::Code::DeadlineExceeded | tonic::Code::Aborted | tonic::Code::Internal | tonic::Code::FailedPrecondition => {
+                            tokio::time::sleep(Duration::from_millis(200)).await;
+                            continue
+                        },
+                        _ => break,
+                        
+                    }
                 } else {
                     break;
                 }
@@ -401,4 +445,57 @@ impl <A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
         // https://github.com/microsoft/LinuxTracepoints-Rust/blob/main/eventheader/src/native.rs#L618
         Ok(())
     }
+}
+
+pub enum Code {
+    /// The operation completed successfully.
+    Ok = 0,
+
+    /// The operation was cancelled.
+    Cancelled = 1,
+
+    /// Unknown error.
+    Unknown = 2,
+
+    /// Client specified an invalid argument.
+    InvalidArgument = 3,
+
+    /// Deadline expired before operation could complete.
+    DeadlineExceeded = 4,
+
+    /// Some requested entity was not found.
+    NotFound = 5,
+
+    /// Some entity that we attempted to create already exists.
+    AlreadyExists = 6,
+
+    /// The caller does not have permission to execute the specified operation.
+    PermissionDenied = 7,
+
+    /// Some resource has been exhausted.
+    ResourceExhausted = 8,
+
+    /// The system is not in a state required for the operation's execution.
+    FailedPrecondition = 9,
+
+    /// The operation was aborted.
+    Aborted = 10,
+
+    /// Operation was attempted past the valid range.
+    OutOfRange = 11,
+
+    /// Operation is not implemented or not supported.
+    Unimplemented = 12,
+
+    /// Internal error.
+    Internal = 13,
+
+    /// The service is currently unavailable.
+    Unavailable = 14,
+
+    /// Unrecoverable data loss or corruption.
+    DataLoss = 15,
+
+    /// The request does not have valid authentication credentials
+    Unauthenticated = 16,
 }

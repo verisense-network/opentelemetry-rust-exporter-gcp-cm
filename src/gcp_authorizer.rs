@@ -108,6 +108,12 @@ impl Authorizer for GcpAuthorizer {
 
 pub struct FakeAuthorizer;
 
+impl FakeAuthorizer {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
 #[async_trait]
 impl Authorizer for FakeAuthorizer {
     type Error = gcp_auth::Error;

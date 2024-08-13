@@ -25,7 +25,6 @@ mod tests {
     use pretty_assertions_sorted::{assert_eq, assert_eq_sorted, assert_eq_all_sorted};
 
     #[tokio::test(flavor ="multi_thread", worker_threads = 1)]
-    // #[tokio::test]
     async fn test_histogram_default_buckets() {
         let _m = THE_RESOURCE.lock().unwrap();
         let calls = get_gcm_calls().await;
@@ -226,8 +225,7 @@ mod tests {
     }
 
     #[tokio::test(flavor ="multi_thread", worker_threads = 1)]
-    // #[tokio::test]
-    async fn test_up_down_counter() {
+    async fn test_up_down_counter_float() {
         let _m = THE_RESOURCE.lock().unwrap();
         let calls = get_gcm_calls().await;
         let metrics_provider = init_metrics(Resource::new(vec![KeyValue::new(
@@ -368,7 +366,6 @@ mod tests {
         assert_eq_sorted!(create_time_series, expected_create_time_series);
     }
     #[tokio::test(flavor ="multi_thread", worker_threads = 1)]
-    // #[tokio::test]
     async fn test_up_down_counter_int() {
         let _m = THE_RESOURCE.lock().unwrap();
         let calls = get_gcm_calls().await;
@@ -511,7 +508,6 @@ mod tests {
     }
 
     #[tokio::test(flavor ="multi_thread", worker_threads = 1)]
-    // #[tokio::test]
     async fn test_observable_up_down_counter_int() {
         let _m = THE_RESOURCE.lock().unwrap();
         let calls = get_gcm_calls().await;
@@ -656,7 +652,6 @@ mod tests {
     }
 
     #[tokio::test(flavor ="multi_thread", worker_threads = 1)]
-    // #[tokio::test]
     async fn test_observable_counter_int() {
         let _m = THE_RESOURCE.lock().unwrap();
         let calls = get_gcm_calls().await;

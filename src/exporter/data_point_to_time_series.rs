@@ -23,11 +23,11 @@ use std::{collections::HashSet, fmt::{Debug, Formatter}, sync::Arc, time::Durati
 use rand::Rng;
 use std::time::SystemTime;
 
-use super::{to_f64::{ToI64, ToF64}, utils::{get_data_points_attributes_keys, normalize_label_key}};
+use super::{to_f64::{ToF64, ToI64}, utils::{get_data_points_attributes_keys, normalize_label_key}, UNIQUE_IDENTIFIER_KEY};
 use crate::{gcloud_sdk, gcp_authorizer::{Authorizer, FakeAuthorizer, GoogleEnvironment}};
 
 
-pub fn convert_f64<T: ToF64 + Copy>(data_point: &data::DataPoint<T>, descriptor: &MetricDescriptor,monitored_resource_data: &Option<gcloud_sdk::google::api::MonitoredResource>) -> TimeSeries {
+pub fn convert_f64<T: ToF64 + Copy>(data_point: &data::DataPoint<T>, descriptor: &MetricDescriptor, monitored_resource_data: &Option<gcloud_sdk::google::api::MonitoredResource>, add_unique_identifier: bool, unique_identifier: String) -> TimeSeries {
 
     
     let point = gcloud_sdk::google::monitoring::v3::Point {
@@ -56,10 +56,10 @@ pub fn convert_f64<T: ToF64 + Copy>(data_point: &data::DataPoint<T>, descriptor:
         }),
     };
 
-    let labels = data_point.attributes.iter().map(|kv| (normalize_label_key(&kv.key.to_string()), kv.value.to_string())).collect::<std::collections::HashMap<String, String>>();
-    // if self.add_unique_identifier {
-    //     labels.insert(UNIQUE_IDENTIFIER_KEY.to_string(), self.unique_identifier.clone());
-    // }  
+    let mut labels = data_point.attributes.iter().map(|kv| (normalize_label_key(&kv.key.to_string()), kv.value.to_string())).collect::<std::collections::HashMap<String, String>>();
+    if add_unique_identifier {
+        labels.insert(UNIQUE_IDENTIFIER_KEY.to_string(), unique_identifier.clone());
+    }
 
     let time_series = TimeSeries {
         resource: monitored_resource_data.clone(),
@@ -76,7 +76,7 @@ pub fn convert_f64<T: ToF64 + Copy>(data_point: &data::DataPoint<T>, descriptor:
     time_series
 }
 
-pub fn convert_i64<T: ToI64 + Copy>(data_point: &data::DataPoint<T>, descriptor: &MetricDescriptor,monitored_resource_data: &Option<gcloud_sdk::google::api::MonitoredResource>) -> TimeSeries {
+pub fn convert_i64<T: ToI64 + Copy>(data_point: &data::DataPoint<T>, descriptor: &MetricDescriptor,monitored_resource_data: &Option<gcloud_sdk::google::api::MonitoredResource>, add_unique_identifier: bool, unique_identifier: String) -> TimeSeries {
     let point = gcloud_sdk::google::monitoring::v3::Point {
         interval: Some(gcloud_sdk::google::monitoring::v3::TimeInterval {
             start_time: if (descriptor.metric_kind == MetricKind::Cumulative as i32) || (descriptor.metric_kind == MetricKind::Delta as i32) {
@@ -103,10 +103,10 @@ pub fn convert_i64<T: ToI64 + Copy>(data_point: &data::DataPoint<T>, descriptor:
         }),
     };
 
-    let labels = data_point.attributes.iter().map(|kv| (normalize_label_key(&kv.key.to_string()), kv.value.to_string())).collect::<std::collections::HashMap<String, String>>();
-    // if self.add_unique_identifier {
-    //     labels.insert(UNIQUE_IDENTIFIER_KEY.to_string(), self.unique_identifier.clone());
-    // }  
+    let mut labels = data_point.attributes.iter().map(|kv| (normalize_label_key(&kv.key.to_string()), kv.value.to_string())).collect::<std::collections::HashMap<String, String>>();
+    if add_unique_identifier {
+        labels.insert(UNIQUE_IDENTIFIER_KEY.to_string(), unique_identifier.clone());
+    }
 
     let time_series = TimeSeries {
         resource: monitored_resource_data.clone(),
