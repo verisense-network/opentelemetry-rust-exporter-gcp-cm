@@ -9,7 +9,7 @@ use opentelemetry_sdk::{
     runtime, Resource,
 };
 use serde_json::json;
-use std::{collections::HashMap, thread};
+use std::collections::HashMap;
 use std::time::Duration;
 use opentelemetry_resourcedetector_gcp_rust::GoogleCloudResourceDetector;
 fn to_labels(kv: serde_json::Value) -> HashMap<String, String> {
@@ -234,8 +234,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 KeyValue::new("mykey2", "myvalue2"),
             ],
         );
-        println!("recorded metrics");
+        // println!("recorded metrics");
         // Sleep for 0.1 second
-        thread::sleep(Duration::from_millis(100));
+        tokio::time::sleep(Duration::from_millis(300)).await;
     }
 }

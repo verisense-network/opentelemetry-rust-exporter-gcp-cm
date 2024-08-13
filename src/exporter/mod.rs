@@ -318,14 +318,8 @@ impl <'a, A: Authorizer> GCPMetricsExporter<'a, A> {
         }
         Some(descriptor)
     }
-}
 
-
-
-#[async_trait]
-impl <A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
-    async fn export(&self, metrics: &mut ResourceMetrics) -> MetricsResult<()> {
-        
+    async fn exec_export(&self, metrics: &mut ResourceMetrics) -> MetricsResult<()> {
         // // println!("export: {:#?}", metrics);
         // let proto_message: ExportMetricsServiceRequest = (&*metrics).into();
         // // println!("export: {}", serde_json::to_string_pretty(&proto_message).unwrap());
@@ -414,7 +408,7 @@ impl <A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
 
             }
         }
-
+        // println!("all_series len: {}", all_series.len());
         let chunked_all_series: Vec<Vec<TimeSeries>> = all_series
             .into_iter()
             .chunks(200)
@@ -464,6 +458,21 @@ impl <A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
             }
         }
         Ok(())
+    }
+}
+
+
+
+#[async_trait]
+impl <A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
+    async fn export(&self, metrics: &mut ResourceMetrics) -> MetricsResult<()> {
+        let sys_time = SystemTime::now();
+        let resp = self.exec_export(metrics).await;
+        let new_sys_time = SystemTime::now();
+        let difference = new_sys_time.duration_since(sys_time)
+            .expect("Clock may have gone backwards").as_millis();
+        // info!("export time: {}", difference);
+        resp
     }
 
     async fn force_flush(&self) -> MetricsResult<()> {
