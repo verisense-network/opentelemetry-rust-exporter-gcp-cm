@@ -22,12 +22,13 @@ use opentelemetry_sdk::metrics::data::{
 };
 use opentelemetry_sdk::Resource as SdkResource;
 
+use tokio::sync::RwLock;
 use tonic::{service::interceptor::InterceptedService, transport::{Channel, ClientTlsConfig}};
 
 use utils::{get_data_points_attributes_keys, normalize_label_key};
 
 use core::time;
-use std::{collections::HashSet, fmt::{Debug, Formatter}, sync::Arc, time::Duration};
+use std::{collections::{HashMap, HashSet}, fmt::{Debug, Formatter}, sync::Arc, time::Duration};
 use rand::Rng;
 use crate::{gcloud_sdk, gcp_authorizer::{Authorizer, FakeAuthorizer, GoogleEnvironment}};
 use std::time::SystemTime;
@@ -41,6 +42,7 @@ pub struct GCPMetricsExporter<'a, A: Authorizer> {
     authorizer: A,
     is_test_env: bool,
     scopes: &'a [&'a str],
+    metric_descriptors: RwLock<HashMap<String, MetricDescriptor>>,
 }
 
 impl<'a, A: Authorizer> GCPMetricsExporter<'a, A> {
@@ -54,6 +56,7 @@ impl<'a, A: Authorizer> GCPMetricsExporter<'a, A> {
             authorizer, 
             is_test_env: false,
             scopes: &["https://www.googleapis.com/auth/cloud-platform"],
+            metric_descriptors: RwLock::new(HashMap::new()),
         }
     }
 
@@ -67,6 +70,7 @@ impl<'a, A: Authorizer> GCPMetricsExporter<'a, A> {
             authorizer: FakeAuthorizer {},
             is_test_env: true,
             scopes: &["https://www.googleapis.com/auth/cloud-platform"],
+            metric_descriptors: RwLock::new(HashMap::new()),
         }
     }
 
@@ -126,10 +130,15 @@ impl <'a, A: Authorizer> GCPMetricsExporter<'a, A> {
     /// :return:
     async fn get_metric_descriptor(&self, metric: &OpentelemetrySdkMetric) -> Option<MetricDescriptor> {
         let descriptor_type = format!("{}/{}",self.prefix, metric.name);
-        // if descriptor_type in self._metric_descriptors:
-        //     return self._metric_descriptors[descriptor_type]
+        let cached_metric_descriptor = {
+            let metric_descriptors = self.metric_descriptors.read().await;
+            metric_descriptors.get(&descriptor_type).cloned()
+        };
+        if let Some(cached_metric_descriptor) = cached_metric_descriptor {
+            return Some(cached_metric_descriptor);
+        }
         let mut descriptor = MetricDescriptor {
-            r#type: descriptor_type,
+            r#type: descriptor_type.clone(),
             display_name: metric.name.to_string(),
             description: metric.description.to_string(),
             unit: metric.unit.to_string(),
@@ -245,7 +254,11 @@ impl <'a, A: Authorizer> GCPMetricsExporter<'a, A> {
                 }
             }
         }
-        //     self._metric_descriptors[descriptor_type] = response_descriptor
+
+        {
+            let mut metric_descriptors = self.metric_descriptors.write().await;
+            metric_descriptors.insert(descriptor_type, descriptor.clone());
+        }
         Some(descriptor)
     }
 }
@@ -349,14 +362,13 @@ impl <A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
                 iteration += 1;
                 if iteration > 101 {
                     global::handle_error(MetricsError::Other("GCPMetricsExporter: Cant send time series".into()));
-                    break;
+                    return Ok(());
                 }           
                 let mut req = tonic::Request::new(CreateTimeSeriesRequest {
                     name: format!("projects/{}", self.authorizer.project_id()),
                     time_series: chunk.clone(),
                 });
                 if let Err(err) = self.authorizer.authorize(&mut req, &self.scopes).await {
-                    tokio::time::sleep(Duration::from_millis(200)).await;
                     global::handle_error(MetricsError::Other(format!("GCPMetricsExporter: cant authorize: {:?}", err)));
                     return Ok(());
                 }
