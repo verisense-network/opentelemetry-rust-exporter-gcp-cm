@@ -3,21 +3,32 @@ use opentelemetry::{
     metrics::MeterProvider as _,
     KeyValue,
 };
-use opentelemetry_rust_exporter_gcp_cm::{GCPMetricsExporterConfig, GCPMetricsExporter};
+use opentelemetry_rust_exporter_gcp_cm::{GCPMetricsExporterConfig, MonitoredResourceDataConfig, GCPMetricsExporter};
 use opentelemetry_sdk::{
     metrics::{PeriodicReader, SdkMeterProvider},
     runtime, Resource,
 };
-use std::thread;
+use serde_json::json;
+use std::{collections::HashMap, thread};
 use std::time::Duration;
 use opentelemetry_resourcedetector_gcp_rust::GoogleCloudResourceDetector;
-
+fn to_labels(kv: serde_json::Value) -> HashMap<String, String> {
+    kv.as_object().unwrap().iter().map(|(k, v)| (k.to_string(), v.as_str().unwrap().to_string())).collect()
+}
 async fn init_metrics() ->  Result<SdkMeterProvider, Box<dyn std::error::Error>> {
     std::env::set_var("GOOGLE_APPLICATION_CREDENTIALS", "/Users/serhiiyatsina/projects/cybx/opentelemetry/opentelemetry-rust-exporter-gcp-cm/.secrets/977645940426-compute@developer.gserviceaccount.com.json");
     
     let mut cfg = GCPMetricsExporterConfig::default();
     cfg.prefix = "custom.googleapis.com/opencensus/cybx.io/test_service".to_string();
-
+    cfg.custom_monitored_resource_data = Some(
+        // https://cloud.google.com/monitoring/api/resources#tag_global
+        MonitoredResourceDataConfig {
+            r#type: "global".to_string(),
+            labels: to_labels(json!({
+                "project_id": "cybx-chat",
+            })),
+        }
+    );
     let exporter = GCPMetricsExporter::new(cfg).await?;
     let reader = PeriodicReader::builder(exporter, runtime::Tokio).build();
     let _gcp_detector = GoogleCloudResourceDetector::new().await;
@@ -27,7 +38,7 @@ async fn init_metrics() ->  Result<SdkMeterProvider, Box<dyn std::error::Error>>
         "metric-from-rust",
     )]);
     let res = Resource::default().merge(&rname);
-    println!("{:#?}", res);
+    // println!("{:#?}", res);
     // )]).merge(&gcp_detector.get_resource());
     Ok(SdkMeterProvider::builder()
         .with_resource(res)
@@ -223,8 +234,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 KeyValue::new("mykey2", "myvalue2"),
             ],
         );
-
-        // Sleep for 1 second
-        thread::sleep(Duration::from_secs(1));
+        println!("recorded metrics");
+        // Sleep for 0.1 second
+        thread::sleep(Duration::from_millis(100));
     }
 }

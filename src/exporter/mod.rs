@@ -47,9 +47,11 @@ pub struct GCPMetricsExporter<'a, A: Authorizer> {
     is_test_env: bool,
     scopes: &'a [&'a str],
     metric_descriptors: Arc<RwLock<HashMap<String, MetricDescriptor>>>,
+    custom_monitored_resource_data: Option<MonitoredResourceDataConfig>,
 }
 
 /// Configuration for the GCP metrics exporter.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GCPMetricsExporterConfig {
     /// prefix: the prefix of the metric. It is "workload.googleapis.com" by
     ///     default if not specified.
@@ -61,6 +63,18 @@ pub struct GCPMetricsExporterConfig {
     ///     export to the same metric name within WRITE_INTERVAL seconds of
     ///     each other.
     pub add_unique_identifier: bool,
+    /// custom_monitored_resource_data: Custom monitored resource data to be
+    pub custom_monitored_resource_data: Option<MonitoredResourceDataConfig>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+/// Custom monitored resource data
+/// need to resolve error 'INVALID_ARGUMENT: One or more TimeSeries could not be written'
+/// if we use it we ignore our gcp resource detector and use this data for creating monitored resource
+/// https://cloud.google.com/monitoring/api/resources#tag_global
+pub struct MonitoredResourceDataConfig {
+    pub r#type: String,
+    pub labels: HashMap<String, String>,
 }
 
 impl Default for GCPMetricsExporterConfig {
@@ -69,6 +83,7 @@ impl Default for GCPMetricsExporterConfig {
             prefix: "workload.googleapis.com".to_string(), 
             project_id: None,
             add_unique_identifier: false,
+            custom_monitored_resource_data: None,
         }
     }
 }
@@ -88,6 +103,7 @@ impl<'a, A: Authorizer> GCPMetricsExporter<'a, A> {
             is_test_env: cfg!(test),
             scopes: &["https://www.googleapis.com/auth/cloud-platform"],
             metric_descriptors: Arc::new(RwLock::new(HashMap::new())),
+            custom_monitored_resource_data: config.custom_monitored_resource_data,
         }
     }
 
@@ -259,7 +275,7 @@ impl <'a, A: Authorizer> GCPMetricsExporter<'a, A> {
             iteration += 1;
             if iteration > 101 {
                 global::handle_error(MetricsError::Other("GCPMetricsExporter: Cant create_metric_descriptor".into()));
-                break;
+                return None;
             }           
             let mut req = tonic::Request::new(gcloud_sdk::google::monitoring::v3::CreateMetricDescriptorRequest {
                 name: format!("projects/{}", project_id),
@@ -284,7 +300,12 @@ impl <'a, A: Authorizer> GCPMetricsExporter<'a, A> {
                             tokio::time::sleep(Duration::from_millis(200)).await;
                             continue
                         },
-                        _ => break,
+                        tonic::Code::AlreadyExists => {
+                            break;
+                        },
+                        _ => {
+                            return None;
+                        },
                         
                     }
                 }
@@ -313,13 +334,22 @@ impl <A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
         // use std::io::Write;
         // let mut file = std::fs::File::create("metrics.txt").unwrap();
         // file.write_all(format!("{:#?}", metrics).as_bytes()).unwrap();
-
-        let monitored_resource_data: Option<gcloud_sdk::google::api::MonitoredResource> = get_monitored_resource(metrics.resource.clone()).map(|v| {
-            gcloud_sdk::google::api::MonitoredResource {
-                r#type: v.r#type,
-                labels: v.labels,
+        let monitored_resource_data = match self.custom_monitored_resource_data.clone() {
+            Some(custom_monitored_resource_data) => {
+                Some(gcloud_sdk::google::api::MonitoredResource {
+                    r#type: custom_monitored_resource_data.r#type,
+                    labels: custom_monitored_resource_data.labels,
+                })
+            },
+            None => {
+                get_monitored_resource(metrics.resource.clone()).map(|v| {
+                    gcloud_sdk::google::api::MonitoredResource {
+                        r#type: v.r#type,
+                        labels: v.labels,
+                    }
+                })
             }
-        });
+        };
 
         let mut all_series = Vec::<TimeSeries>::new();
         for scope_metric in &metrics.scope_metrics {
@@ -401,7 +431,7 @@ impl <A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
                     global::handle_error(MetricsError::Other("GCPMetricsExporter: Cant send time series".into()));
                     return Ok(());
                 }
-                println!("chunk: {:#?}", chunk);
+                // println!("chunk: {:#?}", chunk);
                 let mut req = tonic::Request::new(CreateTimeSeriesRequest {
                     name: format!("projects/{}", project_id),
                     time_series: chunk.clone(),
@@ -445,57 +475,4 @@ impl <A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
         // https://github.com/microsoft/LinuxTracepoints-Rust/blob/main/eventheader/src/native.rs#L618
         Ok(())
     }
-}
-
-pub enum Code {
-    /// The operation completed successfully.
-    Ok = 0,
-
-    /// The operation was cancelled.
-    Cancelled = 1,
-
-    /// Unknown error.
-    Unknown = 2,
-
-    /// Client specified an invalid argument.
-    InvalidArgument = 3,
-
-    /// Deadline expired before operation could complete.
-    DeadlineExceeded = 4,
-
-    /// Some requested entity was not found.
-    NotFound = 5,
-
-    /// Some entity that we attempted to create already exists.
-    AlreadyExists = 6,
-
-    /// The caller does not have permission to execute the specified operation.
-    PermissionDenied = 7,
-
-    /// Some resource has been exhausted.
-    ResourceExhausted = 8,
-
-    /// The system is not in a state required for the operation's execution.
-    FailedPrecondition = 9,
-
-    /// The operation was aborted.
-    Aborted = 10,
-
-    /// Operation was attempted past the valid range.
-    OutOfRange = 11,
-
-    /// Operation is not implemented or not supported.
-    Unimplemented = 12,
-
-    /// Internal error.
-    Internal = 13,
-
-    /// The service is currently unavailable.
-    Unavailable = 14,
-
-    /// Unrecoverable data loss or corruption.
-    DataLoss = 15,
-
-    /// The request does not have valid authentication credentials
-    Unauthenticated = 16,
 }
