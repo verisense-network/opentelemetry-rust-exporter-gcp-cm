@@ -320,7 +320,7 @@ impl <A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
                 //     }
                 } else if let Some(v) = data.downcast_ref::<SdkSum<u64>>() {
                     for data_point in &v.data_points { 
-                        all_series.push(data_point_to_time_series::convert_f64(data_point, &descriptor, &monitored_resource_data));
+                        all_series.push(data_point_to_time_series::convert_i64(data_point, &descriptor, &monitored_resource_data));
                     }
                 } else if let Some(v) = data.downcast_ref::<SdkSum<i64>>() {
                     for data_point in &v.data_points { 
@@ -332,7 +332,7 @@ impl <A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
                     }
                 } else if let Some(v) = data.downcast_ref::<SdkGauge<u64>>() {
                     for data_point in &v.data_points { 
-                        all_series.push(data_point_to_time_series::convert_f64(data_point, &descriptor, &monitored_resource_data));
+                        all_series.push(data_point_to_time_series::convert_i64(data_point, &descriptor, &monitored_resource_data));
                     }
                 } else if let Some(v) = data.downcast_ref::<SdkGauge<i64>>() {
                     for data_point in &v.data_points { 
