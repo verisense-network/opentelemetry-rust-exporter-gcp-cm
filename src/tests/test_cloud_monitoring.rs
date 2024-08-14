@@ -949,6 +949,167 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn test_observable_up_down_counter_float() {
+        let _m = THE_RESOURCE.lock().unwrap();
+        let calls = get_gcm_calls().await;
+        let metrics_provider = init_metrics(Resource::new(vec![KeyValue::new(
+            "service.name",
+            "metric-demo",
+        )]));
+        let meter = metrics_provider.meter("test_cloud_monitoring");
+        let updowncounter = meter
+            .f64_observable_up_down_counter("myobservablecounter")
+            .with_callback(|result| {
+                result.observe(
+                    45.0,
+                    &[
+                        KeyValue::new("string", "string"),
+                        KeyValue::new("int", 123),
+                        KeyValue::new("float", 123.4),
+                    ],
+                );
+            })
+            .with_description("foo")
+            .with_unit("myunit")
+            .init();
+        metrics_provider.force_flush().unwrap();
+        let res = calls.read().await;
+        let create_metric_descriptor = res
+            .get("CreateMetricDescriptor")
+            .unwrap()
+            .iter()
+            .map(|v| {
+                let msg = CreateMetricDescriptorRequest::decode(v.message.as_slice()).unwrap();
+                msg
+            })
+            .collect::<Vec<CreateMetricDescriptorRequest>>();
+        // create_metric_descriptor.iter().for_each(|v| {
+        //     println!("create_metric_descriptor -->");
+        //     println!("{:#?}", v);
+        // });
+        let create_metric_descriptor = create_metric_descriptor.get(0).unwrap().clone();
+
+        let expected_create_metric_descriptor = CreateMetricDescriptorRequest {
+            name: "projects/fake_project_id".to_string(),
+            metric_descriptor: Some(MetricDescriptor {
+                name: "".to_string(),
+                r#type: "workload.googleapis.com/myobservablecounter".to_string(),
+                labels: vec![
+                    gcloud_sdk::google::api::LabelDescriptor {
+                        key: "string".to_string(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
+                            .into(),
+                        description: "".to_string(),
+                    },
+                    gcloud_sdk::google::api::LabelDescriptor {
+                        key: "int".to_string(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
+                            .into(),
+                        description: "".to_string(),
+                    },
+                    gcloud_sdk::google::api::LabelDescriptor {
+                        key: "float".to_string(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
+                            .into(),
+                        description: "".to_string(),
+                    },
+                ],
+                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Gauge.into(),
+                value_type: gcloud_sdk::google::api::metric_descriptor::ValueType::Double.into(),
+                unit: "myunit".to_string(),
+                description: "foo".to_string(),
+                display_name: "myobservablecounter".to_string(),
+                metadata: None,
+                launch_stage: gcloud_sdk::google::api::LaunchStage::Unspecified.into(),
+                monitored_resource_types: Vec::new(),
+            }),
+        };
+        assert_eq_all_sorted!(create_metric_descriptor, expected_create_metric_descriptor);
+
+        let create_time_series = res
+            .get("CreateTimeSeries")
+            .unwrap()
+            .iter()
+            .map(|v| {
+                let msg = CreateTimeSeriesRequest::decode(v.message.as_slice()).unwrap();
+                msg
+            })
+            .collect::<Vec<CreateTimeSeriesRequest>>();
+        // create_time_series.iter().for_each(|v| {
+        //     println!("create_time_series -->");
+        //     println!("{:#?}", v);
+        // });
+        let mut create_time_series = create_time_series.get(0).unwrap().clone();
+        //WARNING! need to ignore interval becouse its ignored in python tests
+        assert_eq!(
+            create_time_series.time_series[0].points[0]
+                .interval
+                .unwrap()
+                .start_time
+                .is_none(),
+            true
+        );
+        assert_eq!(
+            create_time_series.time_series[0].points[0]
+                .interval
+                .unwrap()
+                .end_time
+                .is_some(),
+            true
+        );
+        // todo! need to ignore interval for now in tests
+        create_time_series.time_series[0].points[0].interval = None;
+        let expected_create_time_series = CreateTimeSeriesRequest {
+            name: "projects/fake_project_id".to_string(),
+            time_series: vec![TimeSeries {
+                metric: Some(gcloud_sdk::google::api::Metric {
+                    r#type: "workload.googleapis.com/myobservablecounter".to_string(),
+                    labels: HashMap::from([
+                        ("float".to_string(), "123.4".to_string()),
+                        ("string".to_string(), "string".to_string()),
+                        ("int".to_string(), "123".to_string()),
+                    ]),
+                }),
+                resource: Some(gcloud_sdk::google::api::MonitoredResource {
+                    r#type: "generic_node".to_string(),
+                    labels: HashMap::from([
+                        ("location".to_string(), "global".to_string()),
+                        ("namespace".to_string(), "".to_string()),
+                        ("node_id".to_string(), "".to_string()),
+                    ]),
+                }),
+                metadata: None,
+                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Gauge.into(),
+                value_type: gcloud_sdk::google::api::metric_descriptor::ValueType::Double.into(),
+                points: vec![Point {
+                    interval: None,
+                    //TODO need to ignore interval for now
+                    // interval: Some(
+                    //     TimeInterval {
+                    //         end_time: Some(
+                    //             gcloud_sdk::prost_types::Timestamp {
+                    //                 seconds: 1723249032,
+                    //                 nanos: 972447000,
+                    //             },
+                    //         ),
+                    //         start_time: None,
+                    //     },
+                    // ),
+                    value: Some(TypedValue {
+                        value: Some(
+                            gcloud_sdk::google::monitoring::v3::typed_value::Value::DoubleValue(
+                                45.0,
+                            ),
+                        ),
+                    }),
+                }],
+                unit: "myunit".to_string(),
+            }],
+        };
+        assert_eq_sorted!(create_time_series, expected_create_time_series);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn test_observable_counter_int() {
         let _m = THE_RESOURCE.lock().unwrap();
         let calls = get_gcm_calls().await;
@@ -1100,6 +1261,169 @@ mod tests {
                     value: Some(TypedValue {
                         value: Some(
                             gcloud_sdk::google::monitoring::v3::typed_value::Value::Int64Value(45),
+                        ),
+                    }),
+                }],
+                unit: "myunit".to_string(),
+            }],
+        };
+        assert_eq_sorted!(create_time_series, expected_create_time_series);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn test_observable_counter_float() {
+        let _m = THE_RESOURCE.lock().unwrap();
+        let calls = get_gcm_calls().await;
+        let metrics_provider = init_metrics(Resource::new(vec![KeyValue::new(
+            "service.name",
+            "metric-demo",
+        )]));
+        let meter = metrics_provider.meter("test_cloud_monitoring");
+        let updowncounter = meter
+            .f64_observable_counter("myobservablecounter")
+            .with_callback(|result| {
+                result.observe(
+                    45.0,
+                    &[
+                        KeyValue::new("string", "string"),
+                        KeyValue::new("int", 123),
+                        KeyValue::new("float", 123.4),
+                    ],
+                );
+            })
+            .with_description("foo")
+            .with_unit("myunit")
+            .init();
+        metrics_provider.force_flush().unwrap();
+        let res = calls.read().await;
+        let create_metric_descriptor = res
+            .get("CreateMetricDescriptor")
+            .unwrap()
+            .iter()
+            .map(|v| {
+                let msg = CreateMetricDescriptorRequest::decode(v.message.as_slice()).unwrap();
+                msg
+            })
+            .collect::<Vec<CreateMetricDescriptorRequest>>();
+        // create_metric_descriptor.iter().for_each(|v| {
+        //     println!("create_metric_descriptor -->");
+        //     println!("{:#?}", v);
+        // });
+        let create_metric_descriptor = create_metric_descriptor.get(0).unwrap().clone();
+
+        let expected_create_metric_descriptor = CreateMetricDescriptorRequest {
+            name: "projects/fake_project_id".to_string(),
+            metric_descriptor: Some(MetricDescriptor {
+                name: "".to_string(),
+                r#type: "workload.googleapis.com/myobservablecounter".to_string(),
+                labels: vec![
+                    gcloud_sdk::google::api::LabelDescriptor {
+                        key: "string".to_string(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
+                            .into(),
+                        description: "".to_string(),
+                    },
+                    gcloud_sdk::google::api::LabelDescriptor {
+                        key: "int".to_string(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
+                            .into(),
+                        description: "".to_string(),
+                    },
+                    gcloud_sdk::google::api::LabelDescriptor {
+                        key: "float".to_string(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
+                            .into(),
+                        description: "".to_string(),
+                    },
+                ],
+                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative
+                    .into(),
+                value_type: gcloud_sdk::google::api::metric_descriptor::ValueType::Double.into(),
+                unit: "myunit".to_string(),
+                description: "foo".to_string(),
+                display_name: "myobservablecounter".to_string(),
+                metadata: None,
+                launch_stage: gcloud_sdk::google::api::LaunchStage::Unspecified.into(),
+                monitored_resource_types: Vec::new(),
+            }),
+        };
+        assert_eq_all_sorted!(create_metric_descriptor, expected_create_metric_descriptor);
+
+        let create_time_series = res
+            .get("CreateTimeSeries")
+            .unwrap()
+            .iter()
+            .map(|v| {
+                let msg = CreateTimeSeriesRequest::decode(v.message.as_slice()).unwrap();
+                msg
+            })
+            .collect::<Vec<CreateTimeSeriesRequest>>();
+        // create_time_series.iter().for_each(|v| {
+        //     println!("create_time_series -->");
+        //     println!("{:#?}", v);
+        // });
+        let mut create_time_series = create_time_series.get(0).unwrap().clone();
+        //WARNING! need to ignore interval becouse its ignored in python tests
+        assert_eq!(
+            create_time_series.time_series[0].points[0]
+                .interval
+                .unwrap()
+                .start_time
+                .is_some(),
+            true
+        );
+        assert_eq!(
+            create_time_series.time_series[0].points[0]
+                .interval
+                .unwrap()
+                .end_time
+                .is_some(),
+            true
+        );
+        // todo! need to ignore interval for now in tests
+        create_time_series.time_series[0].points[0].interval = None;
+        let expected_create_time_series = CreateTimeSeriesRequest {
+            name: "projects/fake_project_id".to_string(),
+            time_series: vec![TimeSeries {
+                metric: Some(gcloud_sdk::google::api::Metric {
+                    r#type: "workload.googleapis.com/myobservablecounter".to_string(),
+                    labels: HashMap::from([
+                        ("float".to_string(), "123.4".to_string()),
+                        ("string".to_string(), "string".to_string()),
+                        ("int".to_string(), "123".to_string()),
+                    ]),
+                }),
+                resource: Some(gcloud_sdk::google::api::MonitoredResource {
+                    r#type: "generic_node".to_string(),
+                    labels: HashMap::from([
+                        ("location".to_string(), "global".to_string()),
+                        ("namespace".to_string(), "".to_string()),
+                        ("node_id".to_string(), "".to_string()),
+                    ]),
+                }),
+                metadata: None,
+                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative
+                    .into(),
+                value_type: gcloud_sdk::google::api::metric_descriptor::ValueType::Double.into(),
+                points: vec![Point {
+                    interval: None,
+                    //TODO need to ignore interval for now
+                    // interval: Some(
+                    //     TimeInterval {
+                    //         end_time: Some(
+                    //             gcloud_sdk::prost_types::Timestamp {
+                    //                 seconds: 1723249032,
+                    //                 nanos: 972447000,
+                    //             },
+                    //         ),
+                    //         start_time: None,
+                    //     },
+                    // ),
+                    value: Some(TypedValue {
+                        value: Some(
+                            gcloud_sdk::google::monitoring::v3::typed_value::Value::DoubleValue(
+                                45.0,
+                            ),
                         ),
                     }),
                 }],
@@ -1269,6 +1593,167 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn test_observable_gauge_float() {
+        let _m = THE_RESOURCE.lock().unwrap();
+        let calls = get_gcm_calls().await;
+        let metrics_provider = init_metrics(Resource::new(vec![KeyValue::new(
+            "service.name",
+            "metric-demo",
+        )]));
+        let meter = metrics_provider.meter("test_cloud_monitoring");
+        let updowncounter = meter
+            .f64_observable_gauge("myobservablegauge")
+            .with_callback(|result| {
+                result.observe(
+                    45.0,
+                    &[
+                        KeyValue::new("string", "string"),
+                        KeyValue::new("int", 123),
+                        KeyValue::new("float", 123.4),
+                    ],
+                );
+            })
+            .with_description("foo")
+            .with_unit("myunit")
+            .init();
+        metrics_provider.force_flush().unwrap();
+        let res = calls.read().await;
+        let create_metric_descriptor = res
+            .get("CreateMetricDescriptor")
+            .unwrap()
+            .iter()
+            .map(|v| {
+                let msg = CreateMetricDescriptorRequest::decode(v.message.as_slice()).unwrap();
+                msg
+            })
+            .collect::<Vec<CreateMetricDescriptorRequest>>();
+        // create_metric_descriptor.iter().for_each(|v| {
+        //     println!("create_metric_descriptor -->");
+        //     println!("{:#?}", v);
+        // });
+        let create_metric_descriptor = create_metric_descriptor.get(0).unwrap().clone();
+
+        let expected_create_metric_descriptor = CreateMetricDescriptorRequest {
+            name: "projects/fake_project_id".to_string(),
+            metric_descriptor: Some(MetricDescriptor {
+                name: "".to_string(),
+                r#type: "workload.googleapis.com/myobservablegauge".to_string(),
+                labels: vec![
+                    gcloud_sdk::google::api::LabelDescriptor {
+                        key: "string".to_string(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
+                            .into(),
+                        description: "".to_string(),
+                    },
+                    gcloud_sdk::google::api::LabelDescriptor {
+                        key: "int".to_string(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
+                            .into(),
+                        description: "".to_string(),
+                    },
+                    gcloud_sdk::google::api::LabelDescriptor {
+                        key: "float".to_string(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
+                            .into(),
+                        description: "".to_string(),
+                    },
+                ],
+                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Gauge.into(),
+                value_type: gcloud_sdk::google::api::metric_descriptor::ValueType::Double.into(),
+                unit: "myunit".to_string(),
+                description: "foo".to_string(),
+                display_name: "myobservablegauge".to_string(),
+                metadata: None,
+                launch_stage: gcloud_sdk::google::api::LaunchStage::Unspecified.into(),
+                monitored_resource_types: Vec::new(),
+            }),
+        };
+        assert_eq_all_sorted!(create_metric_descriptor, expected_create_metric_descriptor);
+
+        let create_time_series = res
+            .get("CreateTimeSeries")
+            .unwrap()
+            .iter()
+            .map(|v| {
+                let msg = CreateTimeSeriesRequest::decode(v.message.as_slice()).unwrap();
+                msg
+            })
+            .collect::<Vec<CreateTimeSeriesRequest>>();
+        // create_time_series.iter().for_each(|v| {
+        //     println!("create_time_series -->");
+        //     println!("{:#?}", v);
+        // });
+        let mut create_time_series = create_time_series.get(0).unwrap().clone();
+        //WARNING! need to ignore interval becouse its ignored in python tests
+        assert_eq!(
+            create_time_series.time_series[0].points[0]
+                .interval
+                .unwrap()
+                .start_time
+                .is_none(),
+            true
+        );
+        assert_eq!(
+            create_time_series.time_series[0].points[0]
+                .interval
+                .unwrap()
+                .end_time
+                .is_some(),
+            true
+        );
+        // todo! need to ignore interval for now in tests
+        create_time_series.time_series[0].points[0].interval = None;
+        let expected_create_time_series = CreateTimeSeriesRequest {
+            name: "projects/fake_project_id".to_string(),
+            time_series: vec![TimeSeries {
+                metric: Some(gcloud_sdk::google::api::Metric {
+                    r#type: "workload.googleapis.com/myobservablegauge".to_string(),
+                    labels: HashMap::from([
+                        ("float".to_string(), "123.4".to_string()),
+                        ("string".to_string(), "string".to_string()),
+                        ("int".to_string(), "123".to_string()),
+                    ]),
+                }),
+                resource: Some(gcloud_sdk::google::api::MonitoredResource {
+                    r#type: "generic_node".to_string(),
+                    labels: HashMap::from([
+                        ("location".to_string(), "global".to_string()),
+                        ("namespace".to_string(), "".to_string()),
+                        ("node_id".to_string(), "".to_string()),
+                    ]),
+                }),
+                metadata: None,
+                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Gauge.into(),
+                value_type: gcloud_sdk::google::api::metric_descriptor::ValueType::Double.into(),
+                points: vec![Point {
+                    interval: None,
+                    //TODO need to ignore interval for now
+                    // interval: Some(
+                    //     TimeInterval {
+                    //         end_time: Some(
+                    //             gcloud_sdk::prost_types::Timestamp {
+                    //                 seconds: 1723249032,
+                    //                 nanos: 972447000,
+                    //             },
+                    //         ),
+                    //         start_time: None,
+                    //     },
+                    // ),
+                    value: Some(TypedValue {
+                        value: Some(
+                            gcloud_sdk::google::monitoring::v3::typed_value::Value::DoubleValue(
+                                45.0,
+                            ),
+                        ),
+                    }),
+                }],
+                unit: "myunit".to_string(),
+            }],
+        };
+        assert_eq_sorted!(create_time_series, expected_create_time_series);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn test_counter_int() {
         let _m = THE_RESOURCE.lock().unwrap();
         let calls = get_gcm_calls().await;
@@ -1419,6 +1904,168 @@ mod tests {
                     value: Some(TypedValue {
                         value: Some(
                             gcloud_sdk::google::monitoring::v3::typed_value::Value::Int64Value(45),
+                        ),
+                    }),
+                }],
+                unit: "myunit".to_string(),
+            }],
+        };
+        assert_eq_sorted!(create_time_series, expected_create_time_series);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn test_counter_float() {
+        let _m = THE_RESOURCE.lock().unwrap();
+        let calls = get_gcm_calls().await;
+        let metrics_provider = init_metrics(Resource::new(vec![KeyValue::new(
+            "service.name",
+            "metric-demo",
+        )]));
+        let meter = metrics_provider.meter("test_cloud_monitoring");
+        let mycounter = meter
+            .f64_counter("mycounter")
+            .with_description("foo")
+            .with_unit("myunit")
+            .init();
+
+        mycounter.add(
+            45.0,
+            &[
+                KeyValue::new("string", "string"),
+                KeyValue::new("int", 123),
+                KeyValue::new("float", 123.4),
+            ],
+        );
+        metrics_provider.force_flush().unwrap();
+        let res = calls.read().await;
+        let create_metric_descriptor = res
+            .get("CreateMetricDescriptor")
+            .unwrap()
+            .iter()
+            .map(|v| {
+                let msg = CreateMetricDescriptorRequest::decode(v.message.as_slice()).unwrap();
+                msg
+            })
+            .collect::<Vec<CreateMetricDescriptorRequest>>();
+        // create_metric_descriptor.iter().for_each(|v| {
+        //     println!("create_metric_descriptor -->");
+        //     println!("{:#?}", v);
+        // });
+        let create_metric_descriptor = create_metric_descriptor.get(0).unwrap().clone();
+
+        let expected_create_metric_descriptor = CreateMetricDescriptorRequest {
+            name: "projects/fake_project_id".to_string(),
+            metric_descriptor: Some(MetricDescriptor {
+                name: "".to_string(),
+                r#type: "workload.googleapis.com/mycounter".to_string(),
+                labels: vec![
+                    gcloud_sdk::google::api::LabelDescriptor {
+                        key: "string".to_string(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
+                            .into(),
+                        description: "".to_string(),
+                    },
+                    gcloud_sdk::google::api::LabelDescriptor {
+                        key: "int".to_string(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
+                            .into(),
+                        description: "".to_string(),
+                    },
+                    gcloud_sdk::google::api::LabelDescriptor {
+                        key: "float".to_string(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
+                            .into(),
+                        description: "".to_string(),
+                    },
+                ],
+                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative
+                    .into(),
+                value_type: gcloud_sdk::google::api::metric_descriptor::ValueType::Double.into(),
+                unit: "myunit".to_string(),
+                description: "foo".to_string(),
+                display_name: "mycounter".to_string(),
+                metadata: None,
+                launch_stage: gcloud_sdk::google::api::LaunchStage::Unspecified.into(),
+                monitored_resource_types: Vec::new(),
+            }),
+        };
+        assert_eq_all_sorted!(create_metric_descriptor, expected_create_metric_descriptor);
+
+        let create_time_series = res
+            .get("CreateTimeSeries")
+            .unwrap()
+            .iter()
+            .map(|v| {
+                let msg = CreateTimeSeriesRequest::decode(v.message.as_slice()).unwrap();
+                msg
+            })
+            .collect::<Vec<CreateTimeSeriesRequest>>();
+        // create_time_series.iter().for_each(|v| {
+        //     println!("create_time_series -->");
+        //     println!("{:#?}", v);
+        // });
+        let mut create_time_series = create_time_series.get(0).unwrap().clone();
+        //WARNING! need to ignore interval becouse its ignored in python tests
+        assert_eq!(
+            create_time_series.time_series[0].points[0]
+                .interval
+                .unwrap()
+                .start_time
+                .is_some(),
+            true
+        );
+        assert_eq!(
+            create_time_series.time_series[0].points[0]
+                .interval
+                .unwrap()
+                .end_time
+                .is_some(),
+            true
+        );
+        // todo! need to ignore interval for now in tests
+        create_time_series.time_series[0].points[0].interval = None;
+        let expected_create_time_series = CreateTimeSeriesRequest {
+            name: "projects/fake_project_id".to_string(),
+            time_series: vec![TimeSeries {
+                metric: Some(gcloud_sdk::google::api::Metric {
+                    r#type: "workload.googleapis.com/mycounter".to_string(),
+                    labels: HashMap::from([
+                        ("float".to_string(), "123.4".to_string()),
+                        ("string".to_string(), "string".to_string()),
+                        ("int".to_string(), "123".to_string()),
+                    ]),
+                }),
+                resource: Some(gcloud_sdk::google::api::MonitoredResource {
+                    r#type: "generic_node".to_string(),
+                    labels: HashMap::from([
+                        ("location".to_string(), "global".to_string()),
+                        ("namespace".to_string(), "".to_string()),
+                        ("node_id".to_string(), "".to_string()),
+                    ]),
+                }),
+                metadata: None,
+                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative
+                    .into(),
+                value_type: gcloud_sdk::google::api::metric_descriptor::ValueType::Double.into(),
+                points: vec![Point {
+                    interval: None,
+                    //TODO need to ignore interval for now
+                    // interval: Some(
+                    //     TimeInterval {
+                    //         end_time: Some(
+                    //             gcloud_sdk::prost_types::Timestamp {
+                    //                 seconds: 1723249032,
+                    //                 nanos: 972447000,
+                    //             },
+                    //         ),
+                    //         start_time: None,
+                    //     },
+                    // ),
+                    value: Some(TypedValue {
+                        value: Some(
+                            gcloud_sdk::google::monitoring::v3::typed_value::Value::DoubleValue(
+                                45.0,
+                            ),
                         ),
                     }),
                 }],
