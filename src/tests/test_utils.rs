@@ -1,20 +1,21 @@
-use std::sync::Arc;
-use std::collections::HashMap;
 use crate::gcloud_sdk::google::api::MetricDescriptor;
-use crate::gcloud_sdk::google::monitoring::v3::{CreateMetricDescriptorRequest, CreateTimeSeriesRequest};
+use crate::gcloud_sdk::google::monitoring::v3::{
+    CreateMetricDescriptorRequest, CreateTimeSeriesRequest,
+};
 use crate::gcp_authorizer::FakeAuthorizer;
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use tokio::sync::RwLock;
 
-use opentelemetry::KeyValue;
-use opentelemetry::metrics::MeterProvider;
-
 use opentelemetry_sdk::metrics::{PeriodicReader, SdkMeterProvider};
 use opentelemetry_sdk::{runtime, Resource};
-use tonic::{transport::Server, Request, Response, Status};
 use prost::Message;
+use tonic::{transport::Server, Request, Response, Status};
 
-use crate::gcloud_sdk::google::monitoring::v3::metric_service_server::{MetricService, MetricServiceServer};
+use crate::gcloud_sdk::google::monitoring::v3::metric_service_server::{
+    MetricService, MetricServiceServer,
+};
 
 #[cfg(test)]
 #[derive(Debug, Clone)]
@@ -37,9 +38,13 @@ pub struct MyMetricService {
 impl MetricService for MyMetricService {
     async fn list_monitored_resource_descriptors(
         &self,
-        request: tonic::Request<crate::gcloud_sdk::google::monitoring::v3::ListMonitoredResourceDescriptorsRequest>,
+        request: tonic::Request<
+            crate::gcloud_sdk::google::monitoring::v3::ListMonitoredResourceDescriptorsRequest,
+        >,
     ) -> std::result::Result<
-        tonic::Response<crate::gcloud_sdk::google::monitoring::v3::ListMonitoredResourceDescriptorsResponse>,
+        tonic::Response<
+            crate::gcloud_sdk::google::monitoring::v3::ListMonitoredResourceDescriptorsResponse,
+        >,
         tonic::Status,
     > {
         // Implement the logic for list_monitored_resource_descriptors here
@@ -49,7 +54,10 @@ impl MetricService for MyMetricService {
     async fn list_time_series(
         &self,
         request: tonic::Request<crate::gcloud_sdk::google::monitoring::v3::ListTimeSeriesRequest>,
-    ) -> std::result::Result<tonic::Response<crate::gcloud_sdk::google::monitoring::v3::ListTimeSeriesResponse>, tonic::Status> {
+    ) -> std::result::Result<
+        tonic::Response<crate::gcloud_sdk::google::monitoring::v3::ListTimeSeriesResponse>,
+        tonic::Status,
+    > {
         // Implement the logic for list_time_series here
         unimplemented!()
     }
@@ -66,10 +74,22 @@ impl MetricService for MyMetricService {
         &self,
         request: Request<CreateTimeSeriesRequest>,
     ) -> Result<Response<()>, Status> {
-        let user_agent = request.metadata().get("user-agent").map(|v| v.to_str().unwrap_or("").to_string()).unwrap_or_default();
+        let user_agent = request
+            .metadata()
+            .get("user-agent")
+            .map(|v| v.to_str().unwrap_or("").to_string())
+            .unwrap_or_default();
         let message = request.into_inner().encode_to_vec();
-        let call = GcmCall { message, user_agent };
-        self.calls.write().await.entry("CreateTimeSeries".to_string()).or_default().push(call);
+        let call = GcmCall {
+            message,
+            user_agent,
+        };
+        self.calls
+            .write()
+            .await
+            .entry("CreateTimeSeries".to_string())
+            .or_default()
+            .push(call);
         Ok(Response::new(()))
     }
 
@@ -77,22 +97,37 @@ impl MetricService for MyMetricService {
         &self,
         request: Request<CreateMetricDescriptorRequest>,
     ) -> Result<Response<MetricDescriptor>, Status> {
-        let user_agent = request.metadata().get("user-agent").map(|v| v.to_str().unwrap_or("").to_string()).unwrap_or_default();
+        let user_agent = request
+            .metadata()
+            .get("user-agent")
+            .map(|v| v.to_str().unwrap_or("").to_string())
+            .unwrap_or_default();
         let message: CreateMetricDescriptorRequest = request.into_inner();
         let msg_vec = message.encode_to_vec();
-        let call = GcmCall { message: msg_vec, user_agent };
-        self.calls.write().await.entry("CreateMetricDescriptor".to_string()).or_default().push(call);
+        let call = GcmCall {
+            message: msg_vec,
+            user_agent,
+        };
+        self.calls
+            .write()
+            .await
+            .entry("CreateMetricDescriptor".to_string())
+            .or_default()
+            .push(call);
         // println!("call fake CreateMetricDescriptor: {:?}", message);
         if message.metric_descriptor.is_none() {
             return Err(Status::invalid_argument("metric_descriptor is required"));
         }
-        CreateMetricDescriptorRequest::decode(message.encode_to_vec().as_slice()).map_err(|e| Status::invalid_argument(format!("invalid message: {}", e)))?;
+        CreateMetricDescriptorRequest::decode(message.encode_to_vec().as_slice())
+            .map_err(|e| Status::invalid_argument(format!("invalid message: {}", e)))?;
         Ok(Response::new(message.metric_descriptor.unwrap()))
     }
 
     async fn delete_metric_descriptor(
         &self,
-        _request: tonic::Request<crate::gcloud_sdk::google::monitoring::v3::DeleteMetricDescriptorRequest>,
+        _request: tonic::Request<
+            crate::gcloud_sdk::google::monitoring::v3::DeleteMetricDescriptorRequest,
+        >,
     ) -> Result<Response<()>, Status> {
         // Ok(Response::new(()))
         unimplemented!()
@@ -100,7 +135,9 @@ impl MetricService for MyMetricService {
 
     async fn get_metric_descriptor(
         &self,
-        _request: tonic::Request<crate::gcloud_sdk::google::monitoring::v3::GetMetricDescriptorRequest>,
+        _request: tonic::Request<
+            crate::gcloud_sdk::google::monitoring::v3::GetMetricDescriptorRequest,
+        >,
     ) -> Result<Response<MetricDescriptor>, Status> {
         // let md = MetricDescriptor {
         //     name: "projects/".to_string(),
@@ -112,8 +149,13 @@ impl MetricService for MyMetricService {
 
     async fn list_metric_descriptors(
         &self,
-        _request: tonic::Request<crate::gcloud_sdk::google::monitoring::v3::ListMetricDescriptorsRequest>,
-    ) -> Result<Response<crate::gcloud_sdk::google::monitoring::v3::ListMetricDescriptorsResponse>, Status> {
+        _request: tonic::Request<
+            crate::gcloud_sdk::google::monitoring::v3::ListMetricDescriptorsRequest,
+        >,
+    ) -> Result<
+        Response<crate::gcloud_sdk::google::monitoring::v3::ListMetricDescriptorsResponse>,
+        Status,
+    > {
         // let md = MetricDescriptor {
         //     name: "projects/".to_string(),
         //     ..Default::default()
@@ -126,7 +168,9 @@ impl MetricService for MyMetricService {
 
     async fn get_monitored_resource_descriptor(
         &self,
-        _request: tonic::Request<crate::gcloud_sdk::google::monitoring::v3::GetMonitoredResourceDescriptorRequest>,
+        _request: tonic::Request<
+            crate::gcloud_sdk::google::monitoring::v3::GetMonitoredResourceDescriptorRequest,
+        >,
     ) -> Result<Response<crate::gcloud_sdk::google::api::MonitoredResourceDescriptor>, Status> {
         // let md = crate::gcloud_sdk::google::api::MonitoredResourceDescriptor {
         //     name: "projects/".to_string(),
@@ -135,13 +179,16 @@ impl MetricService for MyMetricService {
         // Ok(Response::new(md))
         unimplemented!()
     }
-    
 }
 
 #[cfg(test)]
 pub(crate) fn init_metrics(res: Resource) -> SdkMeterProvider {
     let exporter = crate::GCPMetricsExporter::<FakeAuthorizer>::fake_new();
-    let reader = PeriodicReader::builder(exporter, runtime::Tokio).build();
+    #[cfg(feature = "tokio")]
+    let rt = runtime::Tokio;
+    #[cfg(feature = "async-std")]
+    let rt = runtime::AsyncStd;
+    let reader = PeriodicReader::builder(exporter, rt).build();
     SdkMeterProvider::builder()
         .with_resource(res)
         .with_reader(reader)
@@ -152,58 +199,65 @@ pub(crate) fn init_metrics(res: Resource) -> SdkMeterProvider {
 pub(crate) async fn get_gcm_calls() -> GcmCalls {
     let addr = "[::1]:50051".parse().unwrap();
     let calls: GcmCalls = Arc::new(RwLock::new(HashMap::new()));
-    let metric_service = MyMetricService { calls: calls.clone() };
+    let metric_service = MyMetricService {
+        calls: calls.clone(),
+    };
     tokio::spawn(async move {
         println!("Server listening on {}", addr);
         Server::builder()
-        .add_service(MetricServiceServer::new(metric_service))
-        .serve(addr)
-        .await.unwrap();
+            .add_service(MetricServiceServer::new(metric_service))
+            .serve(addr)
+            .await
+            .unwrap();
     });
     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     calls
 }
 
-
-
 #[cfg(test)]
 mod tests {
-    use crate::gcloud_sdk::{self, google::monitoring::v3::metric_service_client::MetricServiceClient};
+    use crate::gcloud_sdk::{
+        self, google::monitoring::v3::metric_service_client::MetricServiceClient,
+    };
     use metric_service_server::MetricServiceServer;
     use tonic::transport::Channel;
     use tonic::transport::Server;
 
     use crate::gcloud_sdk::google::monitoring::v3::*;
     use crate::tests::test_utils::*;
-    use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
-    
+
     #[tokio::test]
     #[ignore]
     async fn test_1() {
         let addr = "[::1]:50051".parse().unwrap();
         let calls: GcmCalls = Arc::new(RwLock::new(HashMap::new()));
-        let metric_service = MyMetricService { calls: calls.clone() };
+        let metric_service = MyMetricService {
+            calls: calls.clone(),
+        };
 
         tokio::spawn(async move {
             println!("Server listening on {}", addr);
             Server::builder()
                 .add_service(MetricServiceServer::new(metric_service))
                 .serve(addr)
-                .await.unwrap();
+                .await
+                .unwrap();
         });
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-        
 
         let channel = Channel::from_static("http://localhost:50051")
-        .connect().await.unwrap();
-        
+            .connect()
+            .await
+            .unwrap();
+
         let mut msc = MetricServiceClient::new(channel);
 
-        let req = tonic::Request::new(gcloud_sdk::google::monitoring::v3::CreateMetricDescriptorRequest {
-            name: "projects/".to_string(),
-            ..Default::default()
-            // metric_descriptor: metrics.get_metric_descriptor(),
-        });
+        let req = tonic::Request::new(
+            gcloud_sdk::google::monitoring::v3::CreateMetricDescriptorRequest {
+                name: "projects/".to_string(),
+                ..Default::default() // metric_descriptor: metrics.get_metric_descriptor(),
+            },
+        );
         // self.authorizer.authorize(&mut req, &self.scopes).await.unwrap();
         let resp = msc.create_metric_descriptor(req).await;
         println!("resp: {:?}", resp);

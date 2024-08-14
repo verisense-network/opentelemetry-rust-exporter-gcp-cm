@@ -21,7 +21,7 @@ pub mod google {
         //         include_proto!("google.monitoring.metricsscope.v1");
         //     }
         // }
-        
+
         pub mod v3 {
             // #[cfg(any(feature = "google-monitoring-v3"))]
             include_proto!("google.monitoring.v3");

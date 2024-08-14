@@ -34,9 +34,7 @@ impl ToI64 for u64 {
     fn to_i64(self) -> i64 {
         match i64::try_from(self) {
             Ok(v) => v,
-            Err(_) => {
-                i64::MAX
-            }
+            Err(_) => i64::MAX,
         }
     }
 }

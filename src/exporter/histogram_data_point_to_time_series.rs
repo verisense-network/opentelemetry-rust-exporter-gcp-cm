@@ -1,36 +1,27 @@
-use gcloud_sdk::google::{api::{metric_descriptor, metric_descriptor::MetricKind, LabelDescriptor, MetricDescriptor}, monitoring::v3::{metric_service_client::MetricServiceClient, CreateTimeSeriesRequest, TimeSeries}};
-use gcp_auth::TokenProvider;
-use opentelemetry::{global, metrics::{MetricsError, Result as MetricsResult}};
-use opentelemetry_proto::tonic::{collector::metrics::v1::ExportMetricsServiceRequest, metrics::v1::metric::Data as TonicMetricData};
-use opentelemetry_resourcedetector_gcp_rust::mapping::get_monitored_resource;
-use opentelemetry_sdk::metrics::{
-    data::{Metric as OpentelemetrySdkMetric, ResourceMetrics},
-    exporter::PushMetricsExporter,
-    reader::{AggregationSelector, DefaultAggregationSelector, TemporalitySelector},
-    InstrumentKind,
-};
-
-use opentelemetry_sdk::metrics::data::{
-    self, Aggregation, Exemplar as SdkExemplar, ExponentialHistogram as SdkExponentialHistogram, Gauge as SdkGauge, Histogram as SdkHistogram, Metric as SdkMetric, ScopeMetrics as SdkScopeMetrics, Sum as SdkSum, Temporality
-};
-use opentelemetry_sdk::Resource as SdkResource;
-
-use tonic::{service::interceptor::InterceptedService, transport::{Channel, ClientTlsConfig}};
-
-
-use core::time;
-use std::{collections::HashSet, fmt::{Debug, Formatter}, sync::Arc, time::Duration};
-use rand::Rng;
+use super::{utils::normalize_label_key, UNIQUE_IDENTIFIER_KEY};
+use crate::exporter::to_f64::ToF64;
+use crate::gcloud_sdk;
+use gcloud_sdk::google::{api::MetricDescriptor, monitoring::v3::TimeSeries};
+use opentelemetry_sdk::metrics::data::{self};
 use std::time::SystemTime;
 
-use super::{utils::{get_data_points_attributes_keys, normalize_label_key}, UNIQUE_IDENTIFIER_KEY};
-use crate::{gcloud_sdk, gcp_authorizer::{Authorizer, FakeAuthorizer, GoogleEnvironment}};
-use crate::exporter::to_f64::ToF64;
-
-
-pub fn convert<T: ToF64 + Copy>(data_point: &data::HistogramDataPoint<T>, descriptor: &MetricDescriptor,monitored_resource_data: &Option<gcloud_sdk::google::api::MonitoredResource>, add_unique_identifier: bool, unique_identifier: String) -> TimeSeries {
-    let data_point_start_time = data_point.start_time.duration_since(SystemTime::UNIX_EPOCH).unwrap().as_nanos();
-    let data_point_time = data_point.time.duration_since(SystemTime::UNIX_EPOCH).unwrap().as_nanos();
+pub fn convert<T: ToF64 + Copy>(
+    data_point: &data::HistogramDataPoint<T>,
+    descriptor: &MetricDescriptor,
+    monitored_resource_data: &Option<gcloud_sdk::google::api::MonitoredResource>,
+    add_unique_identifier: bool,
+    unique_identifier: String,
+) -> TimeSeries {
+    let data_point_start_time = data_point
+        .start_time
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let data_point_time = data_point
+        .time
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
     let point = gcloud_sdk::google::monitoring::v3::Point {
         interval: Some(gcloud_sdk::google::monitoring::v3::TimeInterval {
             start_time: Some(gcloud_sdk::prost_types::Timestamp {
@@ -65,10 +56,19 @@ pub fn convert<T: ToF64 + Copy>(data_point: &data::HistogramDataPoint<T>, descri
         }),
     };
 
-    let mut labels = data_point.attributes.iter().map(|kv| (normalize_label_key(&kv.key.to_string()), kv.value.to_string())).collect::<std::collections::HashMap<String, String>>();
+    let mut labels = data_point
+        .attributes
+        .iter()
+        .map(|kv| {
+            (
+                normalize_label_key(&kv.key.to_string()),
+                kv.value.to_string(),
+            )
+        })
+        .collect::<std::collections::HashMap<String, String>>();
     if add_unique_identifier {
         labels.insert(UNIQUE_IDENTIFIER_KEY.to_string(), unique_identifier.clone());
-    } 
+    }
 
     let time_series = TimeSeries {
         resource: monitored_resource_data.clone(),
@@ -86,9 +86,21 @@ pub fn convert<T: ToF64 + Copy>(data_point: &data::HistogramDataPoint<T>, descri
 }
 
 #[cfg(feature = "")]
-pub fn convert_exponential<T: ToF64 + Copy>(data_point: &data::ExponentialHistogramDataPoint<T>, descriptor: &MetricDescriptor,monitored_resource_data: &Option<gcloud_sdk::google::api::MonitoredResource>) -> TimeSeries {
-    let data_point_start_time = data_point.start_time.duration_since(SystemTime::UNIX_EPOCH).unwrap().as_nanos();
-    let data_point_time = data_point.time.duration_since(SystemTime::UNIX_EPOCH).unwrap().as_nanos();
+pub fn convert_exponential<T: ToF64 + Copy>(
+    data_point: &data::ExponentialHistogramDataPoint<T>,
+    descriptor: &MetricDescriptor,
+    monitored_resource_data: &Option<gcloud_sdk::google::api::MonitoredResource>,
+) -> TimeSeries {
+    let data_point_start_time = data_point
+        .start_time
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let data_point_time = data_point
+        .time
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
     let point = gcloud_sdk::google::monitoring::v3::Point {
         interval: Some(gcloud_sdk::google::monitoring::v3::TimeInterval {
             start_time: Some(gcloud_sdk::prost_types::Timestamp {
@@ -123,10 +135,19 @@ pub fn convert_exponential<T: ToF64 + Copy>(data_point: &data::ExponentialHistog
         }),
     };
 
-    let labels = data_point.attributes.iter().map(|kv| (normalize_label_key(&kv.key.to_string()), kv.value.to_string())).collect::<std::collections::HashMap<String, String>>();
+    let labels = data_point
+        .attributes
+        .iter()
+        .map(|kv| {
+            (
+                normalize_label_key(&kv.key.to_string()),
+                kv.value.to_string(),
+            )
+        })
+        .collect::<std::collections::HashMap<String, String>>();
     // if self.add_unique_identifier {
     //     labels.insert(UNIQUE_IDENTIFIER_KEY.to_string(), self.unique_identifier.clone());
-    // }  
+    // }
 
     let time_series = TimeSeries {
         resource: monitored_resource_data.clone(),

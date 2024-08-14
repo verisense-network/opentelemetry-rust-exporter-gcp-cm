@@ -86,6 +86,5 @@ impl From<hyper::http::uri::InvalidUri> for Error {
     }
 }
 
-
 /// Wrapper for the `Result` type with an [`Error`](struct.Error.html).
 pub type Result<T> = std::result::Result<T, Error>;
