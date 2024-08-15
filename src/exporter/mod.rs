@@ -206,11 +206,25 @@ impl<'a, A: Authorizer> GCPMetricsExporter<'a, A> {
         if let Some(cached_metric_descriptor) = cached_metric_descriptor {
             return Some(cached_metric_descriptor);
         }
+        #[cfg(any(
+            // feature = "opentelemetry_0_21",
+            // feature = "opentelemetry_0_22",
+            // feature = "opentelemetry_0_23",
+            feature = "opentelemetry_0_23",
+        ))]
+        let unit = metric.unit.as_str().to_string();
+        #[cfg(any(
+            // feature = "opentelemetry_0_21",
+            // feature = "opentelemetry_0_22",
+            // feature = "opentelemetry_0_23",
+            feature = "opentelemetry_0_24",
+        ))]
+        let unit = metric.unit.to_string();
         let mut descriptor = MetricDescriptor {
             r#type: descriptor_type.clone(),
             display_name: metric.name.to_string(),
             description: metric.description.to_string(),
-            unit: metric.unit.to_string(),
+            unit: unit,
             ..Default::default()
         };
         let seen_keys: HashSet<String> = get_data_points_attributes_keys(metric.data.as_any());

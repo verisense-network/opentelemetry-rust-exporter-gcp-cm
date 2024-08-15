@@ -1,5 +1,5 @@
 crate::import_opentelemetry!();
-use opentelemetry::{global, metrics::MetricsError};
+use opentelemetry::{global, metrics::MetricsError, KeyValue};
 use opentelemetry_sdk::metrics::data::{
     ExponentialHistogram as SdkExponentialHistogram, Gauge as SdkGauge, Histogram as SdkHistogram,
     Sum as SdkSum,
@@ -7,77 +7,77 @@ use opentelemetry_sdk::metrics::data::{
 use std::any::Any;
 use std::collections::HashSet;
 
-pub fn get_data_points_attributes_keys(data: &dyn Any) -> HashSet<String> {
+pub(crate) fn get_data_points_attributes_keys(data: &dyn Any) -> HashSet<String> {
     let attributes_keys = if let Some(v) = data.downcast_ref::<SdkHistogram<i64>>() {
         v.data_points
             .iter()
-            .map(|point| point.attributes.iter().map(|x| x.key.to_string()))
+            .map(|point| point.attributes.iter().map(kv_map_k))
             .flatten()
             .collect()
     } else if let Some(v) = data.downcast_ref::<SdkHistogram<u64>>() {
         v.data_points
             .iter()
-            .map(|point| point.attributes.iter().map(|x| x.key.to_string()))
+            .map(|point| point.attributes.iter().map(kv_map_k))
             .flatten()
             .collect()
     } else if let Some(v) = data.downcast_ref::<SdkHistogram<f64>>() {
         v.data_points
             .iter()
-            .map(|point| point.attributes.iter().map(|x| x.key.to_string()))
+            .map(|point| point.attributes.iter().map(kv_map_k))
             .flatten()
             .collect()
     } else if let Some(v) = data.downcast_ref::<SdkExponentialHistogram<i64>>() {
         v.data_points
             .iter()
-            .map(|point| point.attributes.iter().map(|x| x.key.to_string()))
+            .map(|point| point.attributes.iter().map(kv_map_k))
             .flatten()
             .collect()
     } else if let Some(v) = data.downcast_ref::<SdkExponentialHistogram<u64>>() {
         v.data_points
             .iter()
-            .map(|point| point.attributes.iter().map(|x| x.key.to_string()))
+            .map(|point| point.attributes.iter().map(kv_map_k))
             .flatten()
             .collect()
     } else if let Some(v) = data.downcast_ref::<SdkExponentialHistogram<f64>>() {
         v.data_points
             .iter()
-            .map(|point| point.attributes.iter().map(|x| x.key.to_string()))
+            .map(|point| point.attributes.iter().map(kv_map_k))
             .flatten()
             .collect()
     } else if let Some(v) = data.downcast_ref::<SdkSum<u64>>() {
         v.data_points
             .iter()
-            .map(|point| point.attributes.iter().map(|x| x.key.to_string()))
+            .map(|point| point.attributes.iter().map(kv_map_k))
             .flatten()
             .collect()
     } else if let Some(v) = data.downcast_ref::<SdkSum<i64>>() {
         v.data_points
             .iter()
-            .map(|point| point.attributes.iter().map(|x| x.key.to_string()))
+            .map(|point| point.attributes.iter().map(kv_map_k))
             .flatten()
             .collect()
     } else if let Some(v) = data.downcast_ref::<SdkSum<f64>>() {
         v.data_points
             .iter()
-            .map(|point| point.attributes.iter().map(|x| x.key.to_string()))
+            .map(|point| point.attributes.iter().map(kv_map_k))
             .flatten()
             .collect()
     } else if let Some(v) = data.downcast_ref::<SdkGauge<u64>>() {
         v.data_points
             .iter()
-            .map(|point| point.attributes.iter().map(|x| x.key.to_string()))
+            .map(|point| point.attributes.iter().map(kv_map_k))
             .flatten()
             .collect()
     } else if let Some(v) = data.downcast_ref::<SdkGauge<i64>>() {
         v.data_points
             .iter()
-            .map(|point| point.attributes.iter().map(|x| x.key.to_string()))
+            .map(|point| point.attributes.iter().map(kv_map_k))
             .flatten()
             .collect()
     } else if let Some(v) = data.downcast_ref::<SdkGauge<f64>>() {
         v.data_points
             .iter()
-            .map(|point| point.attributes.iter().map(|x| x.key.to_string()))
+            .map(|point| point.attributes.iter().map(kv_map_k))
             .flatten()
             .collect()
     } else {
@@ -97,7 +97,7 @@ use unicode_segmentation::UnicodeSegmentation;
 ///
 ///    https://github.com/GoogleCloudPlatform/opentelemetry-operations-go/blob/e955c204f4f2bfdc92ff0ad52786232b975efcc2/exporter/metric/metric.go#L595-L604
 ///
-pub fn normalize_label_key(s: &str) -> String {
+pub(crate) fn normalize_label_key(s: &str) -> String {
     if s.is_empty() {
         return s.to_string();
     }
@@ -121,6 +121,48 @@ fn sanitize_string(s: &str) -> String {
         .collect::<String>()
 }
 
+#[cfg(any(
+    // feature = "opentelemetry_0_21",
+    // feature = "opentelemetry_0_22",
+    // feature = "opentelemetry_0_23",
+    feature = "opentelemetry_0_24",
+))]
+pub(crate) fn kv_map_normalize_k_v(kv: &KeyValue) -> (String, String) {
+    (
+        normalize_label_key(&kv.key.to_string()),
+        kv.value.to_string(),
+    )
+}
+
+#[cfg(any(
+    // feature = "opentelemetry_0_21",
+    // feature = "opentelemetry_0_22",
+    // feature = "opentelemetry_0_23",
+    feature = "opentelemetry_0_24",
+))]
+pub(crate) fn kv_map_k(kv: &KeyValue) -> String {
+    kv.key.to_string()
+}
+#[cfg(any(
+    // feature = "opentelemetry_0_21",
+    // feature = "opentelemetry_0_22",
+    // feature = "opentelemetry_0_23",
+    feature = "opentelemetry_0_23",
+))]
+pub(crate) fn kv_map_normalize_k_v(
+    kv: (&opentelemetry::Key, &opentelemetry::Value),
+) -> (String, String) {
+    (normalize_label_key(&kv.0.to_string()), kv.1.to_string())
+}
+#[cfg(any(
+    // feature = "opentelemetry_0_21",
+    // feature = "opentelemetry_0_22",
+    // feature = "opentelemetry_0_23",
+    feature = "opentelemetry_0_23",
+))]
+pub(crate) fn kv_map_k(kv: (&opentelemetry::Key, &opentelemetry::Value)) -> String {
+    kv.0.to_string()
+}
 #[cfg(test)]
 mod tests {
     use super::*;

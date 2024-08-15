@@ -1,7 +1,7 @@
 crate::import_opentelemetry!();
 use super::{
     to_f64::{ToF64, ToI64},
-    utils::normalize_label_key,
+    utils::{kv_map_normalize_k_v, normalize_label_key},
     UNIQUE_IDENTIFIER_KEY,
 };
 use crate::gcloud_sdk;
@@ -55,12 +55,7 @@ pub fn convert_f64<T: ToF64 + Copy>(
     let mut labels = data_point
         .attributes
         .iter()
-        .map(|kv| {
-            (
-                normalize_label_key(&kv.key.to_string()),
-                kv.value.to_string(),
-            )
-        })
+        .map(kv_map_normalize_k_v)
         .collect::<std::collections::HashMap<String, String>>();
     if add_unique_identifier {
         labels.insert(UNIQUE_IDENTIFIER_KEY.to_string(), unique_identifier.clone());
@@ -124,12 +119,7 @@ pub fn convert_i64<T: ToI64 + Copy>(
     let mut labels = data_point
         .attributes
         .iter()
-        .map(|kv| {
-            (
-                normalize_label_key(&kv.key.to_string()),
-                kv.value.to_string(),
-            )
-        })
+        .map(kv_map_normalize_k_v)
         .collect::<std::collections::HashMap<String, String>>();
     if add_unique_identifier {
         labels.insert(UNIQUE_IDENTIFIER_KEY.to_string(), unique_identifier.clone());

@@ -23,6 +23,25 @@ mod tests {
     use prost::Message;
     use std::collections::HashMap;
 
+    #[cfg(any(
+        // feature = "opentelemetry_0_21",
+        // feature = "opentelemetry_0_22",
+        // feature = "opentelemetry_0_23",
+        feature = "opentelemetry_0_24",
+    ))]
+    fn my_unit() -> String {
+        "myunit".to_string()
+    }
+    #[cfg(any(
+        // feature = "opentelemetry_0_21",
+        // feature = "opentelemetry_0_22",
+        // feature = "opentelemetry_0_23",
+        feature = "opentelemetry_0_23",
+    ))]
+    fn my_unit() -> opentelemetry::metrics::Unit {
+        opentelemetry::metrics::Unit::new("myunit")
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn test_histogram_default_buckets() {
         let _m = THE_RESOURCE.lock().unwrap();
@@ -35,7 +54,7 @@ mod tests {
         let histogram = meter
             .f64_histogram("myhistogram")
             .with_description("foo")
-            .with_unit("myunit")
+            .with_unit(my_unit())
             .init();
         for i in 0..10_000 {
             histogram.record(
@@ -287,7 +306,7 @@ mod tests {
         let histogram = meter
             .f64_histogram("my_single_bucket_histogram")
             .with_description("foo")
-            .with_unit("myunit")
+            .with_unit(my_unit())
             .init();
         for i in 0..10_000 {
             histogram.record(
@@ -487,7 +506,7 @@ mod tests {
         let updowncounter = meter
             .f64_up_down_counter("myupdowncounter")
             .with_description("foo")
-            .with_unit("myunit")
+            .with_unit(my_unit())
             .init();
         updowncounter.add(
             45.6,
@@ -645,7 +664,7 @@ mod tests {
         let updowncounter = meter
             .i64_up_down_counter("myupdowncounter")
             .with_description("foo")
-            .with_unit("myunit")
+            .with_unit(my_unit())
             .init();
         updowncounter.add(
             45,
@@ -812,7 +831,7 @@ mod tests {
                 );
             })
             .with_description("foo")
-            .with_unit("myunit")
+            .with_unit(my_unit())
             .init();
         metrics_provider.force_flush().unwrap();
         let res = calls.read().await;
@@ -971,7 +990,7 @@ mod tests {
                 );
             })
             .with_description("foo")
-            .with_unit("myunit")
+            .with_unit(my_unit())
             .init();
         metrics_provider.force_flush().unwrap();
         let res = calls.read().await;
@@ -1132,7 +1151,7 @@ mod tests {
                 );
             })
             .with_description("foo")
-            .with_unit("myunit")
+            .with_unit(my_unit())
             .init();
         metrics_provider.force_flush().unwrap();
         let res = calls.read().await;
@@ -1293,7 +1312,7 @@ mod tests {
                 );
             })
             .with_description("foo")
-            .with_unit("myunit")
+            .with_unit(my_unit())
             .init();
         metrics_provider.force_flush().unwrap();
         let res = calls.read().await;
@@ -1456,7 +1475,7 @@ mod tests {
                 );
             })
             .with_description("foo")
-            .with_unit("myunit")
+            .with_unit(my_unit())
             .init();
         metrics_provider.force_flush().unwrap();
         let res = calls.read().await;
@@ -1615,7 +1634,7 @@ mod tests {
                 );
             })
             .with_description("foo")
-            .with_unit("myunit")
+            .with_unit(my_unit())
             .init();
         metrics_provider.force_flush().unwrap();
         let res = calls.read().await;
@@ -1766,7 +1785,7 @@ mod tests {
         let mycounter = meter
             .u64_counter("mycounter")
             .with_description("foo")
-            .with_unit("myunit")
+            .with_unit(my_unit())
             .init();
 
         mycounter.add(
@@ -1926,7 +1945,7 @@ mod tests {
         let mycounter = meter
             .f64_counter("mycounter")
             .with_description("foo")
-            .with_unit("myunit")
+            .with_unit(my_unit())
             .init();
 
         mycounter.add(
@@ -2088,7 +2107,7 @@ mod tests {
         let mycounter = meter
             .u64_counter("mycounter")
             .with_description("foo")
-            .with_unit("myunit")
+            .with_unit(my_unit())
             .init();
 
         mycounter.add(12, &[KeyValue::new("1some.invalid$\\key", "value")]);
@@ -2228,7 +2247,7 @@ mod tests {
         let mycounter = meter
             .u64_counter("mycounter")
             .with_description("foo")
-            .with_unit("myunit")
+            .with_unit(my_unit())
             .init();
 
         mycounter.add(

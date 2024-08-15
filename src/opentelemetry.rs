@@ -12,5 +12,14 @@ macro_rules! import_opentelemetry {
 
         #[cfg(feature = "opentelemetry_0_24")]
         use opentelemetry_resourcedetector_gcp_rust_0_11_pkg as opentelemetry_resourcedetector_gcp_rust;
+
+        #[cfg(feature = "opentelemetry_0_23")]
+        use opentelemetry_0_23_pkg as opentelemetry;
+
+        #[cfg(feature = "opentelemetry_0_23")]
+        use opentelemetry_sdk_0_23_pkg as opentelemetry_sdk;
+
+        #[cfg(feature = "opentelemetry_0_23")]
+        use opentelemetry_resourcedetector_gcp_rust_0_10_pkg as opentelemetry_resourcedetector_gcp_rust;
     };
 }

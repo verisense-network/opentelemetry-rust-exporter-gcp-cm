@@ -7,11 +7,16 @@ edition = "2018"
 license = "MIT/Apache-2.0"
 
 [dependencies]
+opentelemetry-rust-exporter-gcp-cm = { path = "../..", features = [
+    "rt_tokio_opentelemetry_sdk_0_24",
+    "opentelemetry_0_24",
+], default-features = false }
+
+# opentelemetry-rust-exporter-gcp-cm = { path = "../.." }
 tokio = { version = "1.0", features = ["full"] }
 opentelemetry = { version = "0.24", features = ["metrics"] }
 opentelemetry_sdk = { version = "0.24", features = ["metrics", "rt-tokio"] }
 opentelemetry_resourcedetector_gcp_rust = "0.11.0"
-opentelemetry-rust-exporter-gcp-cm = { path = "../.." }
 # json serializer/deserializer
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
