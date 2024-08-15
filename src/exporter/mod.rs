@@ -2,6 +2,7 @@ mod data_point_to_time_series;
 mod histogram_data_point_to_time_series;
 mod to_f64;
 mod utils;
+crate::import_opentelemetry!();
 use crate::{
     gcloud_sdk,
     gcp_authorizer::{Authorizer, FakeAuthorizer, GcpAuthorizer, GoogleEnvironment},

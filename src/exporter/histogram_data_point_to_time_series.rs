@@ -1,8 +1,9 @@
+crate::import_opentelemetry!();
 use super::{utils::normalize_label_key, UNIQUE_IDENTIFIER_KEY};
 use crate::exporter::to_f64::ToF64;
 use crate::gcloud_sdk;
 use gcloud_sdk::google::{api::MetricDescriptor, monitoring::v3::TimeSeries};
-use opentelemetry_sdk::metrics::data::{self};
+use opentelemetry_sdk::metrics::data;
 use std::time::SystemTime;
 
 pub fn convert<T: ToF64 + Copy>(

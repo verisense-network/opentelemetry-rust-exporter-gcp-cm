@@ -11,6 +11,7 @@ mod tests {
     use crate::tests::test_cloud_monitoring::THE_RESOURCE;
     use crate::tests::test_utils::*;
     use crate::{gcloud_sdk, gcp_authorizer::FakeAuthorizer};
+    crate::import_opentelemetry!();
     use opentelemetry::metrics::MeterProvider;
     use opentelemetry::{global, KeyValue};
     use opentelemetry_sdk::metrics::InstrumentKind;

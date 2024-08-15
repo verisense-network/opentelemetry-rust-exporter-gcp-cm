@@ -1,3 +1,4 @@
+crate::import_opentelemetry!();
 use opentelemetry::{global, metrics::MetricsError};
 use opentelemetry_sdk::metrics::data::{
     ExponentialHistogram as SdkExponentialHistogram, Gauge as SdkGauge, Histogram as SdkHistogram,

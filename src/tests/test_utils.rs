@@ -2,15 +2,15 @@ use crate::gcloud_sdk::google::api::MetricDescriptor;
 use crate::gcloud_sdk::google::monitoring::v3::{
     CreateMetricDescriptorRequest, CreateTimeSeriesRequest,
 };
+crate::import_opentelemetry!();
 use crate::gcp_authorizer::FakeAuthorizer;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use tokio::sync::RwLock;
-
 use opentelemetry_sdk::metrics::{PeriodicReader, SdkMeterProvider};
 use opentelemetry_sdk::{runtime, Resource};
 use prost::Message;
+use tokio::sync::RwLock;
 use tonic::{transport::Server, Request, Response, Status};
 
 use crate::gcloud_sdk::google::monitoring::v3::metric_service_server::{
@@ -185,7 +185,7 @@ impl MetricService for MyMetricService {
 pub(crate) fn init_metrics(res: Resource) -> SdkMeterProvider {
     let exporter = crate::GCPMetricsExporter::<FakeAuthorizer>::fake_new();
     #[cfg(feature = "tokio")]
-    let rt = runtime::Tokio;
+    let rt = opentelemetry_sdk::runtime::Tokio;
     #[cfg(feature = "async-std")]
     let rt = runtime::AsyncStd;
     let reader = PeriodicReader::builder(exporter, rt).build();

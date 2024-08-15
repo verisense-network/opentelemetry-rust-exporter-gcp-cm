@@ -1,3 +1,4 @@
+crate::import_opentelemetry!();
 use super::{
     to_f64::{ToF64, ToI64},
     utils::normalize_label_key,
