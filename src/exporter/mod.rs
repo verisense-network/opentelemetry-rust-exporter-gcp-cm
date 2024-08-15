@@ -207,18 +207,12 @@ impl<'a, A: Authorizer> GCPMetricsExporter<'a, A> {
             return Some(cached_metric_descriptor);
         }
         #[cfg(any(
-            // feature = "opentelemetry_0_21",
-            // feature = "opentelemetry_0_22",
-            // feature = "opentelemetry_0_23",
+            feature = "opentelemetry_0_21",
+            feature = "opentelemetry_0_22",
             feature = "opentelemetry_0_23",
         ))]
         let unit = metric.unit.as_str().to_string();
-        #[cfg(any(
-            // feature = "opentelemetry_0_21",
-            // feature = "opentelemetry_0_22",
-            // feature = "opentelemetry_0_23",
-            feature = "opentelemetry_0_24",
-        ))]
+        #[cfg(any(feature = "opentelemetry_0_24",))]
         let unit = metric.unit.to_string();
         let mut descriptor = MetricDescriptor {
             r#type: descriptor_type.clone(),

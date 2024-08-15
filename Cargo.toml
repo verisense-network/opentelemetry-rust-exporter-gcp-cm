@@ -14,28 +14,56 @@ doctest = false
 [features]
 # default = ["rt_tokio_opentelemetry_sdk_0_24", "opentelemetry_0_24"]
 default = ["rt_tokio_opentelemetry_sdk_0_23", "opentelemetry_0_23"]
-rt_tokio_opentelemetry_sdk_0_24 = [
-    "tokio",
-    "opentelemetry_sdk_0_24_pkg/rt-tokio",
-]
+# default = ["rt_tokio_opentelemetry_sdk_0_22", "opentelemetry_0_22"]
+# default = ["rt_tokio_opentelemetry_sdk_0_21", "opentelemetry_0_21"]
 opentelemetry_0_24 = [
     "opentelemetry_0_24_pkg",
     "opentelemetry_sdk_0_24_pkg",
     "opentelemetry_resourcedetector_gcp_rust_0_11_pkg",
 ]
-
-rt_tokio_opentelemetry_sdk_0_23 = [
+rt_tokio_opentelemetry_sdk_0_24 = [
     "tokio",
-    "opentelemetry_sdk_0_23_pkg/rt-tokio",
+    "opentelemetry_sdk_0_24_pkg/rt-tokio",
 ]
+
 opentelemetry_0_23 = [
     "opentelemetry_0_23_pkg",
     "opentelemetry_sdk_0_23_pkg",
     "opentelemetry_resourcedetector_gcp_rust_0_10_pkg",
 ]
+rt_tokio_opentelemetry_sdk_0_23 = [
+    "tokio",
+    "opentelemetry_sdk_0_23_pkg/rt-tokio",
+]
+
+# opentelemetry_0_22 = [
+#     "opentelemetry_0_22_pkg",
+#     "opentelemetry_sdk_0_22_pkg",
+#     "opentelemetry_resourcedetector_gcp_rust_0_9_pkg",
+# ]
+# rt_tokio_opentelemetry_sdk_0_22 = [
+#     "tokio",
+#     "opentelemetry_sdk_0_22_pkg/rt-tokio",
+# ]
+
+# opentelemetry_0_21 = [
+#     "opentelemetry_0_21_pkg",
+#     "opentelemetry_sdk_0_21_pkg",
+#     "opentelemetry_resourcedetector_gcp_rust_0_8_pkg",
+# ]
+# rt_tokio_opentelemetry_sdk_0_21 = [
+#     "tokio",
+#     "opentelemetry_sdk_0_21_pkg/rt-tokio",
+# ]
 
 [dependencies]
 # opentelemetry = { version = "0.24", features = ["metrics"] }
+opentelemetry_0_21_pkg = { package = "opentelemetry", version = "0.21", features = [
+    "metrics",
+], optional = true }
+opentelemetry_0_22_pkg = { package = "opentelemetry", version = "0.22", features = [
+    "metrics",
+], optional = true }
 opentelemetry_0_23_pkg = { package = "opentelemetry", version = "0.23", features = [
     "metrics",
 ], optional = true }
@@ -43,12 +71,20 @@ opentelemetry_0_24_pkg = { package = "opentelemetry", version = "0.24", features
     "metrics",
 ], optional = true }
 
+opentelemetry_sdk_0_21_pkg = { package = "opentelemetry_sdk", version = "0.21", features = [
+    "metrics",
+], optional = true }
+opentelemetry_sdk_0_22_pkg = { package = "opentelemetry_sdk", version = "0.22", features = [
+    "metrics",
+], optional = true }
 opentelemetry_sdk_0_23_pkg = { package = "opentelemetry_sdk", version = "0.23", features = [
     "metrics",
 ], optional = true }
 opentelemetry_sdk_0_24_pkg = { package = "opentelemetry_sdk", version = "0.24", features = [
     "metrics",
 ], optional = true }
+opentelemetry_resourcedetector_gcp_rust_0_8_pkg = { package = "opentelemetry_resourcedetector_gcp_rust", version = "0.8", optional = true }
+opentelemetry_resourcedetector_gcp_rust_0_9_pkg = { package = "opentelemetry_resourcedetector_gcp_rust", version = "0.9", optional = true }
 opentelemetry_resourcedetector_gcp_rust_0_10_pkg = { package = "opentelemetry_resourcedetector_gcp_rust", version = "0.10", optional = true }
 opentelemetry_resourcedetector_gcp_rust_0_11_pkg = { package = "opentelemetry_resourcedetector_gcp_rust", version = "0.11", optional = true }
 

@@ -22,20 +22,16 @@ mod tests {
     use pretty_assertions_sorted::{assert_eq, assert_eq_all_sorted, assert_eq_sorted};
     use prost::Message;
     use std::collections::HashMap;
+    use std::thread::sleep;
+    use std::time::Duration;
 
-    #[cfg(any(
-        // feature = "opentelemetry_0_21",
-        // feature = "opentelemetry_0_22",
-        // feature = "opentelemetry_0_23",
-        feature = "opentelemetry_0_24",
-    ))]
+    #[cfg(any(feature = "opentelemetry_0_24",))]
     fn my_unit() -> String {
         "myunit".to_string()
     }
     #[cfg(any(
-        // feature = "opentelemetry_0_21",
-        // feature = "opentelemetry_0_22",
-        // feature = "opentelemetry_0_23",
+        feature = "opentelemetry_0_21",
+        feature = "opentelemetry_0_22",
         feature = "opentelemetry_0_23",
     ))]
     fn my_unit() -> opentelemetry::metrics::Unit {

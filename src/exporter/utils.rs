@@ -144,9 +144,8 @@ pub(crate) fn kv_map_k(kv: &KeyValue) -> String {
     kv.key.to_string()
 }
 #[cfg(any(
-    // feature = "opentelemetry_0_21",
-    // feature = "opentelemetry_0_22",
-    // feature = "opentelemetry_0_23",
+    feature = "opentelemetry_0_21",
+    feature = "opentelemetry_0_22",
     feature = "opentelemetry_0_23",
 ))]
 pub(crate) fn kv_map_normalize_k_v(
@@ -155,9 +154,8 @@ pub(crate) fn kv_map_normalize_k_v(
     (normalize_label_key(&kv.0.to_string()), kv.1.to_string())
 }
 #[cfg(any(
-    // feature = "opentelemetry_0_21",
-    // feature = "opentelemetry_0_22",
-    // feature = "opentelemetry_0_23",
+    feature = "opentelemetry_0_21",
+    feature = "opentelemetry_0_22",
     feature = "opentelemetry_0_23",
 ))]
 pub(crate) fn kv_map_k(kv: (&opentelemetry::Key, &opentelemetry::Value)) -> String {
