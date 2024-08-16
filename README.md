@@ -8,8 +8,24 @@ For resource detection see [opentelemetry-resourcedetector-gcp-rust](https://git
 implementation [python version](https://github.com/GoogleCloudPlatform/opentelemetry-operations-python/tree/main/opentelemetry-exporter-gcp-monitoring)
 
 # Installation
-`cargo add opentelemetry-gcloud-monitoring-exporter` - exporter
+`cargo add opentelemetry_gcloud_monitoring_exporter` - exporter
+
 `cargo add opentelemetry_resourcedetector_gcp_rust` - gcp resource detection 
+
+or add to cargo.toml
+
+```
+[dependencies]
+opentelemetry_gcloud_monitoring_exporter = { varsion = "0.10.0", features = [
+    "tokio",
+    "opentelemetry_0_24",
+    "gcp_auth",
+] }
+tokio = { version = "1.0", features = ["full"] }
+opentelemetry = { version = "0.24", features = ["metrics"] }
+opentelemetry_sdk = { version = "0.24", features = ["metrics", "rt-tokio"] }
+opentelemetry_resourcedetector_gcp_rust = "0.11.0"
+```
 
 # Usage
 
@@ -26,13 +42,7 @@ use opentelemetry_sdk::{
 use serde_json::json;
 use std::collections::HashMap;
 use std::time::Duration;
-fn to_labels(kv: serde_json::Value) -> HashMap<String, String> {
-    kv.as_object()
-        .unwrap()
-        .iter()
-        .map(|(k, v)| (k.to_string(), v.as_str().unwrap().to_string()))
-        .collect()
-}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut cfg = GCPMetricsExporterConfig::default();
@@ -63,7 +73,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 KeyValue::new("mykey2", "myvalue2"),
             ],
         );
-         tokio::time::sleep(Duration::from_millis(300)).await;
+        tokio::time::sleep(Duration::from_millis(300)).await;
     }
 }
 ```
@@ -78,9 +88,9 @@ Customize metric location in google monitoring
         // https://cloud.google.com/monitoring/api/resources#tag_global
         MonitoredResourceDataConfig {
             r#type: "global".to_string(),
-            labels: to_labels(json!({
-                "project_id": "my-project",
-            })),
+            labels: HashMap::from([
+                ("project_id".to_string(), "my-project".to_string()),
+            ]),
         },
     );
     let exporter = GCPMetricsExporter::new_gcp_auth(cfg).await?;

@@ -7,8 +7,8 @@ edition = "2018"
 license = "MIT/Apache-2.0"
 
 [dependencies]
-opentelemetry-gcloud-monitoring-exporter = { path = "../..", features = [
-    "rt_tokio_opentelemetry_sdk_0_24",
+opentelemetry_gcloud_monitoring_exporter = { path = "../..", features = [
+    "tokio",
     "opentelemetry_0_24",
     "gcp_auth",
 ] }

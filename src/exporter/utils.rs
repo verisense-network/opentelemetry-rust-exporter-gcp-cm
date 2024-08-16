@@ -1,5 +1,13 @@
 crate::import_opentelemetry!();
-use opentelemetry::{global, metrics::MetricsError, KeyValue};
+#[cfg(any(
+    // feature = "opentelemetry_0_21",
+    // feature = "opentelemetry_0_22",
+    // feature = "opentelemetry_0_23",
+    feature = "opentelemetry_0_24",
+))]
+use opentelemetry::KeyValue;
+use opentelemetry::{global, metrics::MetricsError};
+
 use opentelemetry_sdk::metrics::data::{
     ExponentialHistogram as SdkExponentialHistogram, Gauge as SdkGauge, Histogram as SdkHistogram,
     Sum as SdkSum,
