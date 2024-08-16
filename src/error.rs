@@ -1,22 +1,13 @@
 use std::{convert::From, fmt};
 
+use crate::gcp_authorizer_error::GcpAuthorizerError;
+
 /// Represents the details of the [`Error`](struct.Error.html)
 #[derive(Debug)]
 pub enum ErrorKind {
-    /// GCE metadata service error.
-    Metadata(String),
     Other(String),
+    Authorizer(GcpAuthorizerError),
     TonicMetadata(tonic::metadata::errors::InvalidMetadataValue),
-    /// Token source error.
-    TokenSource,
-    /// An error parsing credentials file.
-    CredentialsJson(serde_json::Error),
-    /// An error reading credentials file.
-    CredentialsFile(std::io::Error),
-    /// An error parsing data from token response.
-    TokenJson(serde_json::Error),
-    /// Invalid token error.
-    TokenData,
     GrpcStatus(tonic::transport::Error),
     UrlError(hyper::http::uri::InvalidUri),
     UrlErrorInvalidAuthority(String),
@@ -44,13 +35,8 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use ErrorKind::*;
         match *self.0 {
-            Metadata(ref e) => write!(f, "gce metadata service error: {}", e),
-            Other(ref e) => write!(f, "gce other service error: {}", e),
-            TokenSource => write!(f, "token source error: not found token source"),
-            CredentialsJson(ref e) => write!(f, "credentials json error: {}", e),
-            CredentialsFile(ref e) => write!(f, "credentials file error: {}", e),
-            TokenJson(ref e) => write!(f, "token json error: {}", e),
-            TokenData => write!(f, "token data error: invalid token response data"),
+            Authorizer(ref e) => write!(f, "Authorizer error: {}", e),
+            Other(ref e) => write!(f, "Other error: {}", e),
             GrpcStatus(ref e) => write!(f, "Tonic/gRPC error: {}", e),
             UrlError(ref e) => write!(f, "Url error: {}", e),
             UrlErrorInvalidAuthority(ref e) => write!(f, "Url error: {}", e),

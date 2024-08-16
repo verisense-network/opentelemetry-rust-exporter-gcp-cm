@@ -183,7 +183,7 @@ impl MetricService for MyMetricService {
 
 #[cfg(test)]
 pub(crate) fn init_metrics(res: Resource) -> SdkMeterProvider {
-    let exporter = crate::GCPMetricsExporter::<FakeAuthorizer>::fake_new();
+    let exporter = crate::GCPMetricsExporter::fake_new();
     #[cfg(feature = "tokio")]
     let rt = opentelemetry_sdk::runtime::Tokio;
     #[cfg(feature = "async-std")]

@@ -1,8 +1,8 @@
+use crate::{error::Error, gcp_authorizer_error::GcpAuthorizerError};
 use async_trait::async_trait;
 use hyper::Uri;
 use std::{sync::Arc, time::Duration};
 use tonic::{metadata::MetadataValue, transport::Channel, Request};
-
 pub struct GoogleEnvironment;
 
 impl GoogleEnvironment {
@@ -51,58 +51,6 @@ mod tests {
     }
 }
 
-// pub static GCP_DEFAULT_SCOPES: Lazy<Vec<String>> =
-//     Lazy::new(|| vec!["https://www.googleapis.com/auth/cloud-platform".into()]);
-
-// #[cfg(feature = "gcp-authorizer")]
-pub struct GcpAuthorizer {
-    provider: Arc<dyn gcp_auth::TokenProvider>,
-    project_id: Arc<str>,
-}
-
-// #[cfg(feature = "gcp-authorizer")]
-impl GcpAuthorizer {
-    pub async fn new() -> Result<Self, gcp_auth::Error> {
-        let provider = gcp_auth::provider().await?;
-        let project_id = provider.project_id().await?;
-        Ok(Self {
-            provider,
-            project_id,
-        })
-    }
-    pub fn from_gcp_auth(provider: Arc<dyn gcp_auth::TokenProvider>, project_id: Arc<str>) -> Self {
-        Self {
-            provider,
-            project_id,
-        }
-    }
-}
-
-// #[cfg(feature = "gcp-authorizer")]
-#[async_trait]
-impl Authorizer for GcpAuthorizer {
-    type Error = gcp_auth::Error;
-
-    fn project_id(&self) -> &str {
-        &self.project_id
-    }
-
-    async fn authorize<T: Send + Sync>(
-        &self,
-        req: &mut Request<T>,
-        scopes: &[&str],
-    ) -> Result<(), Self::Error> {
-        let token = self.provider.token(scopes).await?;
-
-        req.metadata_mut().insert(
-            "authorization",
-            MetadataValue::try_from(format!("Bearer {}", token.as_str())).unwrap(),
-        );
-
-        Ok(())
-    }
-}
-
 pub struct FakeAuthorizer;
 
 impl FakeAuthorizer {
@@ -113,33 +61,21 @@ impl FakeAuthorizer {
 
 #[async_trait]
 impl Authorizer for FakeAuthorizer {
-    type Error = gcp_auth::Error;
     fn project_id(&self) -> &str {
         "fake_project_id"
     }
 
-    async fn authorize<T: Send + Sync>(
-        &self,
-        req: &mut tonic::Request<T>,
-        scopes: &[&str],
-    ) -> Result<(), gcp_auth::Error> {
-        req.metadata_mut().insert(
-            "authorization",
-            MetadataValue::try_from(format!("Bearer {}", "fake_token")).unwrap(),
-        );
-        Ok(())
+    async fn token(&self) -> Result<String, GcpAuthorizerError> {
+        // req.metadata_mut().insert(
+        //     "authorization",
+        //     MetadataValue::try_from(format!("Bearer {}", "fake_token")).unwrap(),
+        // );
+        Ok("fake_token".to_string())
     }
 }
 
 #[async_trait]
-pub trait Authorizer: Sync + Send + 'static {
-    type Error: std::error::Error + std::fmt::Debug + Send + Sync;
-
+pub trait Authorizer {
     fn project_id(&self) -> &str;
-
-    async fn authorize<T: Send + Sync>(
-        &self,
-        request: &mut Request<T>,
-        scopes: &[&str],
-    ) -> Result<(), Self::Error>;
+    async fn token(&self) -> Result<String, GcpAuthorizerError>;
 }

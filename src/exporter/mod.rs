@@ -5,7 +5,7 @@ mod utils;
 crate::import_opentelemetry!();
 use crate::{
     gcloud_sdk,
-    gcp_authorizer::{Authorizer, FakeAuthorizer, GcpAuthorizer, GoogleEnvironment},
+    gcp_authorizer::{Authorizer, FakeAuthorizer, GoogleEnvironment},
 };
 #[cfg(feature = "async-std")]
 use async_std::{sync::RwLock, task::sleep};
@@ -41,20 +41,21 @@ use std::{
 };
 #[cfg(feature = "tokio")]
 use tokio::{sync::RwLock, time::sleep};
-use tonic::transport::Channel;
+use tonic::{metadata::MetadataValue, transport::Channel};
 use utils::{get_data_points_attributes_keys, normalize_label_key};
 
 pub(crate) const UNIQUE_IDENTIFIER_KEY: &str = "opentelemetry_id";
 
+pub type AuthorizerType = Arc<dyn Authorizer + Send + Sync>;
+
 /// Implementation of Metrics Exporter to Google Cloud Monitoring.
-pub struct GCPMetricsExporter<'a, A: Authorizer> {
+pub struct GCPMetricsExporter {
     prefix: String,
     project_id: Option<String>,
     add_unique_identifier: bool,
     unique_identifier: String,
-    authorizer: A,
+    authorizer: AuthorizerType,
     is_test_env: bool,
-    scopes: &'a [&'a str],
     metric_descriptors: Arc<RwLock<HashMap<String, MetricDescriptor>>>,
     custom_monitored_resource_data: Option<MonitoredResourceDataConfig>,
 }
@@ -97,17 +98,9 @@ impl Default for GCPMetricsExporterConfig {
     }
 }
 
-impl<'a, A: Authorizer> GCPMetricsExporter<'a, A> {
-    pub fn new_with_custom_auth(authorizer: A, config: GCPMetricsExporterConfig) -> Self {
-        // let scopes = vec!["https://www.googleapis.com/auth/cloud-platform".to_string()];
+impl GCPMetricsExporter {
+    pub fn new(authorizer: AuthorizerType, config: GCPMetricsExporterConfig) -> Self {
         let my_rundom = format!("{:08x}", rand::thread_rng().gen_range(0..u32::MAX));
-        // let my_rundom = format!(
-        //     "{:?}",
-        //     SystemTime::now()
-        //         .duration_since(SystemTime::UNIX_EPOCH)
-        //         .unwrap()
-        //         .as_nanos()
-        // );
         Self {
             prefix: config.prefix,
             add_unique_identifier: config.add_unique_identifier,
@@ -115,7 +108,6 @@ impl<'a, A: Authorizer> GCPMetricsExporter<'a, A> {
             unique_identifier: my_rundom,
             authorizer,
             is_test_env: cfg!(test),
-            scopes: &["https://www.googleapis.com/auth/cloud-platform"],
             metric_descriptors: Arc::new(RwLock::new(HashMap::new())),
             custom_monitored_resource_data: config.custom_monitored_resource_data,
         }
@@ -138,25 +130,26 @@ impl<'a, A: Authorizer> GCPMetricsExporter<'a, A> {
     }
 }
 
-impl<'a> GCPMetricsExporter<'a, GcpAuthorizer> {
-    pub async fn new(
+#[cfg(feature = "gcp_auth")]
+impl GCPMetricsExporter {
+    pub async fn new_gcp_auth(
         config: GCPMetricsExporterConfig,
-    ) -> Result<GCPMetricsExporter<'a, GcpAuthorizer>, gcp_auth::Error> {
-        let auth = GcpAuthorizer::new().await?;
-        Ok(GCPMetricsExporter::new_with_custom_auth(auth, config))
+    ) -> Result<GCPMetricsExporter, gcp_auth::Error> {
+        let auth = crate::gcp_auth_authorizer::GcpAuth::new().await?;
+        Ok(GCPMetricsExporter::new(Arc::new(auth), config))
     }
 }
 
-impl<'a> GCPMetricsExporter<'a, FakeAuthorizer> {
-    pub fn fake_new() -> GCPMetricsExporter<'a, FakeAuthorizer> {
-        GCPMetricsExporter::new_with_custom_auth(
-            FakeAuthorizer::new(),
+impl GCPMetricsExporter {
+    pub fn fake_new() -> GCPMetricsExporter {
+        GCPMetricsExporter::new(
+            Arc::new(FakeAuthorizer::new()),
             GCPMetricsExporterConfig::default(),
         )
     }
 }
 
-impl<'a, A: Authorizer> TemporalitySelector for GCPMetricsExporter<'a, A> {
+impl TemporalitySelector for GCPMetricsExporter {
     // This is matching OTLP exporters delta.
     fn temporality(&self, kind: InstrumentKind) -> Temporality {
         match kind {
@@ -172,7 +165,7 @@ impl<'a, A: Authorizer> TemporalitySelector for GCPMetricsExporter<'a, A> {
     }
 }
 
-impl<'a, A: Authorizer> AggregationSelector for GCPMetricsExporter<'a, A> {
+impl AggregationSelector for GCPMetricsExporter {
     // TODO: this should ideally be done at SDK level by default
     // without exporters having to do it.
     fn aggregation(&self, kind: InstrumentKind) -> opentelemetry_sdk::metrics::Aggregation {
@@ -180,13 +173,13 @@ impl<'a, A: Authorizer> AggregationSelector for GCPMetricsExporter<'a, A> {
     }
 }
 
-impl<'a, A: Authorizer> Debug for GCPMetricsExporter<'a, A> {
+impl Debug for GCPMetricsExporter {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str("Google monitoring metrics exporter")
     }
 }
 
-impl<'a, A: Authorizer> GCPMetricsExporter<'a, A> {
+impl GCPMetricsExporter {
     /// We can map Metric to MetricDescriptor using Metric.name or
     /// MetricDescriptor.type. We create the MetricDescriptor if it doesn't
     /// exist already and cache it. Note that recreating MetricDescriptors is
@@ -287,8 +280,8 @@ impl<'a, A: Authorizer> GCPMetricsExporter<'a, A> {
             descriptor.metric_kind = MetricKind::Gauge.into();
             descriptor.value_type = metric_descriptor::ValueType::Double.into();
         } else {
-            global::handle_error(MetricsError::Other(
-                "GCPMetricsExporter: Unsupported metric data type, ignoring it".into(),
+            global::handle_error(MetricsError::Other(format!(
+                "GCPMetricsExporter: Unsupported metric data type, ignoring it for metric with name '{}'", metric.name),
             ));
             // warning!("Unsupported metric data type, ignoring it");
             return None;
@@ -321,14 +314,22 @@ impl<'a, A: Authorizer> GCPMetricsExporter<'a, A> {
                     metric_descriptor: Some(descriptor.clone()),
                 },
             );
-            if let Err(err) = self.authorizer.authorize(&mut req, &self.scopes).await {
-                sleep(Duration::from_millis(200)).await;
-                global::handle_error(MetricsError::Other(format!(
-                    "GCPMetricsExporter: cant authorize: {:?}",
-                    err
-                )));
-                return None;
+            match self.authorizer.token().await {
+                Ok(token) => {
+                    req.metadata_mut().insert(
+                        "authorization",
+                        MetadataValue::try_from(format!("Bearer {}", token.as_str())).unwrap(),
+                    );
+                }
+                Err(err) => {
+                    global::handle_error(MetricsError::Other(format!(
+                        "GCPMetricsExporter: cant authorize: {:?}",
+                        err
+                    )));
+                    return None;
+                }
             }
+
             match msc.create_metric_descriptor(req).await {
                 Ok(_resp) => break,
                 Err(err) => {
@@ -505,8 +506,8 @@ impl<'a, A: Authorizer> GCPMetricsExporter<'a, A> {
                         ));
                     }
                 } else {
-                    global::handle_error(MetricsError::Other(
-                        "GCPMetricsExporter: Unsupported metric data type, ignoring it".into(),
+                    global::handle_error(MetricsError::Other(format!(
+                        "GCPMetricsExporter: Unsupported metric data type, ignoring it for metric with name '{}'", metric.name),
                     ));
                 };
             }
@@ -528,28 +529,33 @@ impl<'a, A: Authorizer> GCPMetricsExporter<'a, A> {
             loop {
                 iteration += 1;
                 if iteration > 101 {
-                    global::handle_error(MetricsError::Other(
+                    return Err(MetricsError::Other(
                         "GCPMetricsExporter: Cant send time series".into(),
                     ));
-                    return Ok(());
                 }
                 // println!("chunk: {:#?}", chunk);
                 let mut req = tonic::Request::new(CreateTimeSeriesRequest {
                     name: format!("projects/{}", project_id),
                     time_series: chunk.clone(),
                 });
-                if let Err(err) = self.authorizer.authorize(&mut req, &self.scopes).await {
-                    global::handle_error(MetricsError::Other(format!(
-                        "GCPMetricsExporter: cant authorize: {:?}",
-                        err
-                    )));
-                    return Ok(());
+                match self.authorizer.token().await {
+                    Ok(token) => {
+                        req.metadata_mut().insert(
+                            "authorization",
+                            MetadataValue::try_from(format!("Bearer {}", token.as_str())).unwrap(),
+                        );
+                    }
+                    Err(err) => {
+                        return Err(MetricsError::Other(format!(
+                            "GCPMetricsExporter: cant authorize: {:?}",
+                            err
+                        )));
+                    }
                 }
                 let channel = match self.make_chanel().await {
                     Ok(channel) => channel,
                     Err(err) => {
-                        global::handle_error(MetricsError::Other(format!("GCPMetricsExporter: Cant init google services grpc transport channel [Make issue with this case in github repo]: {:?}", err)));
-                        return Ok(());
+                        return Err(MetricsError::Other(format!("GCPMetricsExporter: Cant init google services grpc transport channel [Make issue with this case in github repo]: {:?}", err)));
                     }
                 };
                 let mut msc = MetricServiceClient::new(channel);
@@ -580,7 +586,7 @@ impl<'a, A: Authorizer> GCPMetricsExporter<'a, A> {
 }
 
 #[async_trait]
-impl<A: Authorizer> PushMetricsExporter for GCPMetricsExporter<'static, A> {
+impl PushMetricsExporter for GCPMetricsExporter {
     async fn export(&self, metrics: &mut ResourceMetrics) -> MetricsResult<()> {
         let sys_time = SystemTime::now();
         let resp = self.exec_export(metrics).await;

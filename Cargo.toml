@@ -12,8 +12,9 @@ rust-version = "1.70"
 doctest = false
 
 [features]
-# default = ["rt_tokio_opentelemetry_sdk_0_24", "opentelemetry_0_24"]
-default = ["rt_tokio_opentelemetry_sdk_0_23", "opentelemetry_0_23"]
+default = ["rt_tokio_opentelemetry_sdk_0_24", "opentelemetry_0_24", "gcp_auth"]
+gcp_auth = ["dep:gcp_auth"]
+# default = ["rt_tokio_opentelemetry_sdk_0_23", "opentelemetry_0_23"]
 # default = ["rt_tokio_opentelemetry_sdk_0_22", "opentelemetry_0_22"]
 # default = ["rt_tokio_opentelemetry_sdk_0_21", "opentelemetry_0_21"]
 opentelemetry_0_24 = [
@@ -36,6 +37,8 @@ rt_tokio_opentelemetry_sdk_0_23 = [
     "opentelemetry_sdk_0_23_pkg/rt-tokio",
 ]
 
+# todo: add the 0.22 and 0.21 features 
+# now tests with 0.22 and 0.21 are failing
 # opentelemetry_0_22 = [
 #     "opentelemetry_0_22_pkg",
 #     "opentelemetry_sdk_0_22_pkg",
@@ -94,8 +97,9 @@ async-trait = "0.1"
 # json serializer/deserializer
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+derive_more = "0.99"
 # Google sdk
-gcp_auth = "0.12"
+gcp_auth = { version = "0.12", optional = true }
 # gcloud-sdk = { version = "0.25", features = ["tls-roots", "google-monitoring-v3"] }
 prost = "0.13"
 prost-types = "0.13"

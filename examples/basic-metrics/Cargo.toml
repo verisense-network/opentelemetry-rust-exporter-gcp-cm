@@ -10,6 +10,7 @@ license = "MIT/Apache-2.0"
 opentelemetry-rust-exporter-gcp-cm = { path = "../..", features = [
     "rt_tokio_opentelemetry_sdk_0_24",
     "opentelemetry_0_24",
+    "gcp_auth",
 ], default-features = false }
 
 # opentelemetry-rust-exporter-gcp-cm = { path = "../.." }

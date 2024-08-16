@@ -269,7 +269,7 @@ mod tests {
     async fn test_histogram_single_bucket() {
         let _m = THE_RESOURCE.lock().unwrap();
         let calls = get_gcm_calls().await;
-        let exporter = crate::GCPMetricsExporter::<FakeAuthorizer>::fake_new();
+        let exporter = crate::GCPMetricsExporter::fake_new();
         let rt = runtime::Tokio;
         let reader = PeriodicReader::builder(exporter, rt).build();
         let my_view_change_aggregation = |i: &Instrument| {
@@ -2391,5 +2391,91 @@ mod tests {
             }],
         };
         assert_eq_sorted!(create_time_series, expected_create_time_series);
+    }
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    #[ignore]
+    async fn test_user_agent() {
+        // def test_with_resource(
+        //     gcmfake_meter_provider: GcmFakeMeterProvider,
+        //     gcmfake: GcmFake,
+        // ) -> None:
+        //     meter_provider = gcmfake_meter_provider()
+        //     counter = meter_provider.get_meter(__name__).create_counter(
+        //         "mycounter", description="foo", unit="{myunit}"
+        //     )
+        //     counter.add(12)
+        //     meter_provider.force_flush()
+
+        //     for calls in gcmfake.get_calls().values():
+        //         for call in calls:
+        //             assert (
+        //                 re.match(
+        //                     r"^opentelemetry-python \S+; google-cloud-metric-exporter \S+ grpc-python/\S+",
+        //                     call.user_agent,
+        //                 )
+        //                 is not None
+        //             )
+
+        let _m = THE_RESOURCE.lock().unwrap();
+        let calls = get_gcm_calls().await;
+        let metrics_provider = init_metrics(Resource::new(vec![KeyValue::new(
+            "service.name",
+            "metric-demo",
+        )]));
+        let meter = metrics_provider.meter("test_cloud_monitoring");
+        let mycounter = meter
+            .u64_counter("mycounter")
+            .with_description("foo")
+            .with_unit(my_unit())
+            .init();
+
+        mycounter.add(
+            45,
+            &[
+                KeyValue::new("string", "string"),
+                KeyValue::new("int", 123),
+                KeyValue::new("float", 123.4),
+            ],
+        );
+        metrics_provider.force_flush().unwrap();
+        let res = calls.read().await;
+        let create_metric_descriptor_user_agent = res
+            .get("CreateMetricDescriptor")
+            .unwrap()
+            .iter()
+            .map(|v| {
+                let msg = v.user_agent.clone();
+                msg
+            })
+            .collect::<Vec<String>>();
+        // create_metric_descriptor.iter().for_each(|v| {
+        //     println!("create_metric_descriptor -->");
+        //     println!("{:#?}", v);
+        // });
+        let create_metric_descriptor_user_agent =
+            create_metric_descriptor_user_agent.get(0).unwrap().clone();
+        println!(
+            "create_metric_descriptor_user_agent --> '{}'",
+            create_metric_descriptor_user_agent
+        );
+
+        assert!(false);
+
+        let create_time_series_user_agent = res
+            .get("CreateTimeSeries")
+            .unwrap()
+            .iter()
+            .map(|v| {
+                let msg = v.user_agent.clone();
+                msg
+            })
+            .collect::<Vec<String>>();
+        let create_time_series_user_agent = create_time_series_user_agent.get(0).unwrap().clone();
+        println!(
+            "create_time_series_user_agent --> '{}'",
+            create_time_series_user_agent
+        );
+
+        assert!(false);
     }
 }

@@ -32,7 +32,7 @@ async fn init_metrics() -> Result<SdkMeterProvider, Box<dyn std::error::Error>> 
             })),
         },
     );
-    let exporter = GCPMetricsExporter::new(cfg).await?;
+    let exporter = GCPMetricsExporter::new_gcp_auth(cfg).await?;
     let reader = PeriodicReader::builder(exporter, runtime::Tokio).build();
     let _gcp_detector = GoogleCloudResourceDetector::new().await;
     // https://cloud.google.com/monitoring/api/resources#tag_global
