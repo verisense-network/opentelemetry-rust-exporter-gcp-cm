@@ -3,12 +3,11 @@ use crate::gcloud_sdk::google::monitoring::v3::{
     CreateMetricDescriptorRequest, CreateTimeSeriesRequest,
 };
 crate::import_opentelemetry!();
-use crate::gcp_authorizer::FakeAuthorizer;
 use std::collections::HashMap;
 use std::sync::Arc;
 
 use opentelemetry_sdk::metrics::{PeriodicReader, SdkMeterProvider};
-use opentelemetry_sdk::{runtime, Resource};
+use opentelemetry_sdk::Resource;
 use prost::Message;
 use tokio::sync::RwLock;
 use tonic::{transport::Server, Request, Response, Status};
@@ -29,7 +28,7 @@ pub(crate) type GcmCalls = Arc<RwLock<HashMap<String, Vec<GcmCall>>>>;
 
 #[cfg(test)]
 #[derive(Default)]
-pub struct MyMetricService {
+pub(crate) struct MyMetricService {
     pub calls: GcmCalls,
 }
 
@@ -38,7 +37,7 @@ pub struct MyMetricService {
 impl MetricService for MyMetricService {
     async fn list_monitored_resource_descriptors(
         &self,
-        request: tonic::Request<
+        _request: tonic::Request<
             crate::gcloud_sdk::google::monitoring::v3::ListMonitoredResourceDescriptorsRequest,
         >,
     ) -> std::result::Result<
@@ -53,7 +52,7 @@ impl MetricService for MyMetricService {
 
     async fn list_time_series(
         &self,
-        request: tonic::Request<crate::gcloud_sdk::google::monitoring::v3::ListTimeSeriesRequest>,
+        _request: tonic::Request<crate::gcloud_sdk::google::monitoring::v3::ListTimeSeriesRequest>,
     ) -> std::result::Result<
         tonic::Response<crate::gcloud_sdk::google::monitoring::v3::ListTimeSeriesResponse>,
         tonic::Status,
@@ -64,7 +63,9 @@ impl MetricService for MyMetricService {
 
     async fn create_service_time_series(
         &self,
-        request: tonic::Request<crate::gcloud_sdk::google::monitoring::v3::CreateTimeSeriesRequest>,
+        _request: tonic::Request<
+            crate::gcloud_sdk::google::monitoring::v3::CreateTimeSeriesRequest,
+        >,
     ) -> std::result::Result<tonic::Response<()>, tonic::Status> {
         // Implement the logic for create_service_time_series here
         unimplemented!()
@@ -202,6 +203,7 @@ pub(crate) async fn get_gcm_calls() -> GcmCalls {
     let metric_service = MyMetricService {
         calls: calls.clone(),
     };
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     tokio::spawn(async move {
         println!("Server listening on {}", addr);
         Server::builder()
@@ -210,7 +212,7 @@ pub(crate) async fn get_gcm_calls() -> GcmCalls {
             .await
             .unwrap();
     });
-    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     calls
 }
 

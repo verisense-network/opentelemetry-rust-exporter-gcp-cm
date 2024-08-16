@@ -1,0 +1,11 @@
+rustup install 1.70.0
+rustup install 1.71.0
+rustup install 1.72.0
+rustup install 1.73.0
+rustup install 1.74.0
+rustup install 1.75.0
+rustup install 1.76.0
+rustup install 1.77.0
+rustup install 1.78.0
+rustup install 1.79.0
+rustup install 1.80.0

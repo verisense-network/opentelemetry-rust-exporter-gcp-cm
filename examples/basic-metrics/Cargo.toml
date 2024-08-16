@@ -7,11 +7,11 @@ edition = "2018"
 license = "MIT/Apache-2.0"
 
 [dependencies]
-opentelemetry-rust-exporter-gcp-cm = { path = "../..", features = [
+opentelemetry-gcloud-monitoring-exporter = { path = "../..", features = [
     "rt_tokio_opentelemetry_sdk_0_24",
     "opentelemetry_0_24",
     "gcp_auth",
-], default-features = false }
+] }
 
 # opentelemetry-rust-exporter-gcp-cm = { path = "../.." }
 tokio = { version = "1.0", features = ["full"] }

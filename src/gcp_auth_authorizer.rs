@@ -1,9 +1,6 @@
-use crate::{error::Error, gcp_authorizer::Authorizer, gcp_authorizer_error::GcpAuthorizerError};
+use crate::{gcp_authorizer::Authorizer, gcp_authorizer_error::GcpAuthorizerError};
 use async_trait::async_trait;
-use hyper::Uri;
-use std::{sync::Arc, time::Duration};
-use tonic::{metadata::MetadataValue, transport::Channel, Request};
-pub struct GoogleEnvironment;
+use std::sync::Arc;
 pub struct GcpAuth {
     provider: Arc<dyn gcp_auth::TokenProvider>,
     project_id: Arc<str>,

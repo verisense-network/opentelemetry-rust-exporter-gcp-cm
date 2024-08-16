@@ -1,7 +1,7 @@
 crate::import_opentelemetry!();
 use super::{
     to_f64::{ToF64, ToI64},
-    utils::{kv_map_normalize_k_v, normalize_label_key},
+    utils::kv_map_normalize_k_v,
     UNIQUE_IDENTIFIER_KEY,
 };
 use crate::gcloud_sdk;

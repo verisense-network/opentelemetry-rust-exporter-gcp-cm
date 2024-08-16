@@ -1,9 +1,16 @@
 [package]
-name = "opentelemetry-rust-exporter-gcp-cm"
+name = "opentelemetry-gcloud-monitoring-exporter"
 version = "0.1.0"
-description = "OpenTelemetry metrics exporter to google cloud monitoring"
+description = "Provides support for exporting metrics to Google Cloud Monitoring."
 readme = "README.md"
-keywords = ["opentelemetry", "metrics", "gcp", "cloud-monitoring"]
+keywords = [
+    "opentelemetry",
+    "metrics",
+    "exporter",
+    "gcp",
+    "cloud-monitoring",
+    "monitoring",
+]
 license = "Apache-2.0"
 edition = "2021"
 rust-version = "1.70"
@@ -14,9 +21,9 @@ doctest = false
 [features]
 default = ["rt_tokio_opentelemetry_sdk_0_24", "opentelemetry_0_24", "gcp_auth"]
 gcp_auth = ["dep:gcp_auth"]
-# default = ["rt_tokio_opentelemetry_sdk_0_23", "opentelemetry_0_23"]
-# default = ["rt_tokio_opentelemetry_sdk_0_22", "opentelemetry_0_22"]
-# default = ["rt_tokio_opentelemetry_sdk_0_21", "opentelemetry_0_21"]
+# default = ["rt_tokio_opentelemetry_sdk_0_23", "opentelemetry_0_23", "gcp_auth"]
+# default = ["rt_tokio_opentelemetry_sdk_0_22", "opentelemetry_0_22", "gcp_auth"]
+# default = ["rt_tokio_opentelemetry_sdk_0_21", "opentelemetry_0_21", "gcp_auth"]
 opentelemetry_0_24 = [
     "opentelemetry_0_24_pkg",
     "opentelemetry_sdk_0_24_pkg",

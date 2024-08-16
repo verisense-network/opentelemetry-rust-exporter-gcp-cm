@@ -1,8 +1,5 @@
 crate::import_opentelemetry!();
-use super::{
-    utils::{kv_map_normalize_k_v, normalize_label_key},
-    UNIQUE_IDENTIFIER_KEY,
-};
+use super::{utils::kv_map_normalize_k_v, UNIQUE_IDENTIFIER_KEY};
 use crate::exporter::to_f64::ToF64;
 use crate::gcloud_sdk;
 use gcloud_sdk::google::{api::MetricDescriptor, monitoring::v3::TimeSeries};

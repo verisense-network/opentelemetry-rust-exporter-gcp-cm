@@ -1,9 +1,9 @@
 //! run with `$ cargo run --example basic --all-features
 use opentelemetry::{metrics::MeterProvider as _, KeyValue};
-use opentelemetry_resourcedetector_gcp_rust::GoogleCloudResourceDetector;
-use opentelemetry_rust_exporter_gcp_cm::{
+use opentelemetry_gcloud_monitoring_exporter::{
     GCPMetricsExporter, GCPMetricsExporterConfig, MonitoredResourceDataConfig,
 };
+use opentelemetry_resourcedetector_gcp_rust::GoogleCloudResourceDetector;
 use opentelemetry_sdk::{
     metrics::{PeriodicReader, SdkMeterProvider},
     runtime, Resource,

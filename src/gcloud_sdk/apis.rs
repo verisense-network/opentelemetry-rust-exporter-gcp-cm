@@ -4,7 +4,7 @@
     clippy::derive_partial_eq_without_eq
 )]
 
-pub const CERTIFICATES: &[u8] = include_bytes!("./data/roots.pem");
+// pub const CERTIFICATES: &[u8] = include_bytes!("./data/roots.pem");
 
 #[allow(unused_macros)]
 macro_rules! include_proto {

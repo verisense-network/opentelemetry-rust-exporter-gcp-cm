@@ -200,8 +200,8 @@ impl GCPMetricsExporter {
             return Some(cached_metric_descriptor);
         }
         #[cfg(any(
-            feature = "opentelemetry_0_21",
-            feature = "opentelemetry_0_22",
+            // feature = "opentelemetry_0_21",
+            // feature = "opentelemetry_0_22",
             feature = "opentelemetry_0_23",
         ))]
         let unit = metric.unit.as_str().to_string();
@@ -230,61 +230,63 @@ impl GCPMetricsExporter {
                 ..Default::default()
             });
         }
-        let data = metric.data.as_any();
-        if let Some(_v) = data.downcast_ref::<SdkHistogram<i64>>() {
-            descriptor.metric_kind = MetricKind::Cumulative.into();
-            descriptor.value_type = metric_descriptor::ValueType::Distribution.into();
-        } else if let Some(v) = data.downcast_ref::<SdkHistogram<u64>>() {
-            descriptor.metric_kind = MetricKind::Cumulative.into();
-            descriptor.value_type = metric_descriptor::ValueType::Distribution.into();
-        } else if let Some(v) = data.downcast_ref::<SdkHistogram<f64>>() {
-            descriptor.metric_kind = MetricKind::Cumulative.into();
-            descriptor.value_type = metric_descriptor::ValueType::Distribution.into();
-        } else if let Some(v) = data.downcast_ref::<SdkExponentialHistogram<i64>>() {
-            descriptor.metric_kind = MetricKind::Cumulative.into();
-            descriptor.value_type = metric_descriptor::ValueType::Distribution.into();
-        } else if let Some(v) = data.downcast_ref::<SdkExponentialHistogram<u64>>() {
-            descriptor.metric_kind = MetricKind::Cumulative.into();
-            descriptor.value_type = metric_descriptor::ValueType::Distribution.into();
-        } else if let Some(v) = data.downcast_ref::<SdkExponentialHistogram<f64>>() {
-            descriptor.metric_kind = MetricKind::Cumulative.into();
-            descriptor.value_type = metric_descriptor::ValueType::Distribution.into();
-        } else if let Some(v) = data.downcast_ref::<SdkSum<u64>>() {
-            descriptor.metric_kind = if v.is_monotonic {
-                MetricKind::Cumulative.into()
+        {
+            let data = metric.data.as_any();
+            if let Some(_) = data.downcast_ref::<SdkHistogram<i64>>() {
+                descriptor.metric_kind = MetricKind::Cumulative.into();
+                descriptor.value_type = metric_descriptor::ValueType::Distribution.into();
+            } else if let Some(_) = data.downcast_ref::<SdkHistogram<u64>>() {
+                descriptor.metric_kind = MetricKind::Cumulative.into();
+                descriptor.value_type = metric_descriptor::ValueType::Distribution.into();
+            } else if let Some(_) = data.downcast_ref::<SdkHistogram<f64>>() {
+                descriptor.metric_kind = MetricKind::Cumulative.into();
+                descriptor.value_type = metric_descriptor::ValueType::Distribution.into();
+            } else if let Some(_) = data.downcast_ref::<SdkExponentialHistogram<i64>>() {
+                descriptor.metric_kind = MetricKind::Cumulative.into();
+                descriptor.value_type = metric_descriptor::ValueType::Distribution.into();
+            } else if let Some(_) = data.downcast_ref::<SdkExponentialHistogram<u64>>() {
+                descriptor.metric_kind = MetricKind::Cumulative.into();
+                descriptor.value_type = metric_descriptor::ValueType::Distribution.into();
+            } else if let Some(_) = data.downcast_ref::<SdkExponentialHistogram<f64>>() {
+                descriptor.metric_kind = MetricKind::Cumulative.into();
+                descriptor.value_type = metric_descriptor::ValueType::Distribution.into();
+            } else if let Some(v) = data.downcast_ref::<SdkSum<u64>>() {
+                descriptor.metric_kind = if v.is_monotonic {
+                    MetricKind::Cumulative.into()
+                } else {
+                    MetricKind::Gauge.into()
+                };
+                descriptor.value_type = metric_descriptor::ValueType::Int64.into();
+            } else if let Some(v) = data.downcast_ref::<SdkSum<i64>>() {
+                descriptor.metric_kind = if v.is_monotonic {
+                    MetricKind::Cumulative.into()
+                } else {
+                    MetricKind::Gauge.into()
+                };
+                descriptor.value_type = metric_descriptor::ValueType::Int64.into();
+            } else if let Some(v) = data.downcast_ref::<SdkSum<f64>>() {
+                descriptor.metric_kind = if v.is_monotonic {
+                    MetricKind::Cumulative.into()
+                } else {
+                    MetricKind::Gauge.into()
+                };
+                descriptor.value_type = metric_descriptor::ValueType::Double.into();
+            } else if let Some(_) = data.downcast_ref::<SdkGauge<u64>>() {
+                descriptor.metric_kind = MetricKind::Gauge.into();
+                descriptor.value_type = metric_descriptor::ValueType::Int64.into();
+            } else if let Some(_) = data.downcast_ref::<SdkGauge<i64>>() {
+                descriptor.metric_kind = MetricKind::Gauge.into();
+                descriptor.value_type = metric_descriptor::ValueType::Int64.into();
+            } else if let Some(_) = data.downcast_ref::<SdkGauge<f64>>() {
+                descriptor.metric_kind = MetricKind::Gauge.into();
+                descriptor.value_type = metric_descriptor::ValueType::Double.into();
             } else {
-                MetricKind::Gauge.into()
-            };
-            descriptor.value_type = metric_descriptor::ValueType::Int64.into();
-        } else if let Some(v) = data.downcast_ref::<SdkSum<i64>>() {
-            descriptor.metric_kind = if v.is_monotonic {
-                MetricKind::Cumulative.into()
-            } else {
-                MetricKind::Gauge.into()
-            };
-            descriptor.value_type = metric_descriptor::ValueType::Int64.into();
-        } else if let Some(v) = data.downcast_ref::<SdkSum<f64>>() {
-            descriptor.metric_kind = if v.is_monotonic {
-                MetricKind::Cumulative.into()
-            } else {
-                MetricKind::Gauge.into()
-            };
-            descriptor.value_type = metric_descriptor::ValueType::Double.into();
-        } else if let Some(v) = data.downcast_ref::<SdkGauge<u64>>() {
-            descriptor.metric_kind = MetricKind::Gauge.into();
-            descriptor.value_type = metric_descriptor::ValueType::Int64.into();
-        } else if let Some(v) = data.downcast_ref::<SdkGauge<i64>>() {
-            descriptor.metric_kind = MetricKind::Gauge.into();
-            descriptor.value_type = metric_descriptor::ValueType::Int64.into();
-        } else if let Some(v) = data.downcast_ref::<SdkGauge<f64>>() {
-            descriptor.metric_kind = MetricKind::Gauge.into();
-            descriptor.value_type = metric_descriptor::ValueType::Double.into();
-        } else {
-            global::handle_error(MetricsError::Other(format!(
+                global::handle_error(MetricsError::Other(format!(
                 "GCPMetricsExporter: Unsupported metric data type, ignoring it for metric with name '{}'", metric.name),
             ));
-            // warning!("Unsupported metric data type, ignoring it");
-            return None;
+                // warning!("Unsupported metric data type, ignoring it");
+                return None;
+            }
         }
 
         let project_id = self
@@ -591,7 +593,7 @@ impl PushMetricsExporter for GCPMetricsExporter {
         let sys_time = SystemTime::now();
         let resp = self.exec_export(metrics).await;
         let new_sys_time = SystemTime::now();
-        let difference = new_sys_time
+        let _difference = new_sys_time
             .duration_since(sys_time)
             .expect("Clock may have gone backwards")
             .as_millis();

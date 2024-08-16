@@ -6,24 +6,22 @@ use std::sync::Mutex;
 static THE_RESOURCE: Lazy<Mutex<()>> = Lazy::new(Mutex::default);
 #[cfg(test)]
 mod tests {
+    use crate::gcloud_sdk;
     use crate::gcloud_sdk::google::api::MetricDescriptor;
     use crate::gcloud_sdk::google::monitoring::v3::*;
     use crate::tests::test_cloud_monitoring::THE_RESOURCE;
     use crate::tests::test_utils::*;
-    use crate::{gcloud_sdk, gcp_authorizer::FakeAuthorizer};
     crate::import_opentelemetry!();
     use opentelemetry::metrics::MeterProvider;
-    use opentelemetry::{global, KeyValue};
+    use opentelemetry::KeyValue;
     use opentelemetry_sdk::metrics::InstrumentKind;
     use opentelemetry_sdk::{
-        metrics::{new_view, Aggregation, Instrument, PeriodicReader, SdkMeterProvider, Stream},
+        metrics::{Aggregation, Instrument, PeriodicReader, SdkMeterProvider, Stream},
         runtime, Resource,
     };
     use pretty_assertions_sorted::{assert_eq, assert_eq_all_sorted, assert_eq_sorted};
     use prost::Message;
     use std::collections::HashMap;
-    use std::thread::sleep;
-    use std::time::Duration;
 
     #[cfg(any(feature = "opentelemetry_0_24",))]
     fn my_unit() -> String {
@@ -814,7 +812,7 @@ mod tests {
             "metric-demo",
         )]));
         let meter = metrics_provider.meter("test_cloud_monitoring");
-        let updowncounter = meter
+        let _updowncounter = meter
             .i64_observable_up_down_counter("myobservablecounter")
             .with_callback(|result| {
                 result.observe(
@@ -973,7 +971,7 @@ mod tests {
             "metric-demo",
         )]));
         let meter = metrics_provider.meter("test_cloud_monitoring");
-        let updowncounter = meter
+        let _updowncounter = meter
             .f64_observable_up_down_counter("myobservablecounter")
             .with_callback(|result| {
                 result.observe(
@@ -1134,7 +1132,7 @@ mod tests {
             "metric-demo",
         )]));
         let meter = metrics_provider.meter("test_cloud_monitoring");
-        let updowncounter = meter
+        let _updowncounter = meter
             .u64_observable_counter("myobservablecounter")
             .with_callback(|result| {
                 result.observe(
@@ -1295,7 +1293,7 @@ mod tests {
             "metric-demo",
         )]));
         let meter = metrics_provider.meter("test_cloud_monitoring");
-        let updowncounter = meter
+        let _updowncounter = meter
             .f64_observable_counter("myobservablecounter")
             .with_callback(|result| {
                 result.observe(
@@ -1458,7 +1456,7 @@ mod tests {
             "metric-demo",
         )]));
         let meter = metrics_provider.meter("test_cloud_monitoring");
-        let updowncounter = meter
+        let _updowncounter = meter
             .u64_observable_gauge("myobservablegauge")
             .with_callback(|result| {
                 result.observe(
@@ -1617,7 +1615,7 @@ mod tests {
             "metric-demo",
         )]));
         let meter = metrics_provider.meter("test_cloud_monitoring");
-        let updowncounter = meter
+        let _updowncounter = meter
             .f64_observable_gauge("myobservablegauge")
             .with_callback(|result| {
                 result.observe(

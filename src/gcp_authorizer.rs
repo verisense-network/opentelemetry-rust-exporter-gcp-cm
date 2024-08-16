@@ -1,8 +1,8 @@
-use crate::{error::Error, gcp_authorizer_error::GcpAuthorizerError};
+use crate::gcp_authorizer_error::GcpAuthorizerError;
 use async_trait::async_trait;
 use hyper::Uri;
-use std::{sync::Arc, time::Duration};
-use tonic::{metadata::MetadataValue, transport::Channel, Request};
+use std::time::Duration;
+use tonic::transport::Channel;
 pub struct GoogleEnvironment;
 
 impl GoogleEnvironment {
@@ -44,7 +44,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_normalize_label_key() {
-        let channel =
+        let _channel =
             GoogleEnvironment::init_google_services_channel("https://monitoring.googleapis.com")
                 .await
                 .unwrap();

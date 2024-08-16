@@ -1,4 +1,5 @@
-#![allow(dead_code, unused_imports, unused_variables)]
+// #![allow(dead_code, unused_imports, unused_variables, unexpected_cfgs)]
+#![allow(unexpected_cfgs)]
 #[macro_use]
 pub mod error;
 mod exporter;
