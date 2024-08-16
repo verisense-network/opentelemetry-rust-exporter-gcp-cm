@@ -4,9 +4,6 @@ This library provides support for exporting metrics to Google Cloud Monitoring.
 
 For resource detection see [opentelemetry-resourcedetector-gcp-rust](https://github.com/Sergo007/opentelemetry-resourcedetector-gcp-rust).
 
-
-implementation [python version](https://github.com/GoogleCloudPlatform/opentelemetry-operations-python/tree/main/opentelemetry-exporter-gcp-monitoring)
-
 # Installation
 `cargo add opentelemetry_gcloud_monitoring_exporter` - exporter
 
@@ -16,7 +13,7 @@ or add to cargo.toml
 
 ```
 [dependencies]
-opentelemetry_gcloud_monitoring_exporter = { varsion = "0.10.0", features = [
+opentelemetry_gcloud_monitoring_exporter = { varsion = "0.11.0", features = [
     "tokio",
     "opentelemetry_0_24",
     "gcp_auth",
@@ -78,12 +75,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-Customize metric location in google monitoring
+Customize metric resource in google monitoring
 ```rust
     let mut cfg = GCPMetricsExporterConfig::default();
     cfg.prefix = "custom.googleapis.com/test_service".to_string();
 
-    // customize metric location in google monitoring
+    // customize metric resource in google monitoring
     cfg.custom_monitored_resource_data = Some(
         // https://cloud.google.com/monitoring/api/resources#tag_global
         MonitoredResourceDataConfig {
@@ -99,3 +96,13 @@ Customize metric location in google monitoring
         .with_reader(reader)
         .build();
 ```
+
+## References
+
+[Cloud Monitoring](https://cloud.google.com/monitoring)
+
+[OpenTelemetry Project](https://opentelemetry.io/)
+
+
+## Test cases from this repo
+[opentelemetry-exporter-gcp-monitoring python version](https://github.com/GoogleCloudPlatform/opentelemetry-operations-python/tree/main/opentelemetry-exporter-gcp-monitoring)
