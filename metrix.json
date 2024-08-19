@@ -1,0 +1,541 @@
+{
+  "resourceMetrics": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "metric-demo"
+            }
+          }
+        ],
+        "droppedAttributesCount": 0
+      },
+      "scopeMetrics": [
+        {
+          "scope": {
+            "name": "user-event-test",
+            "version": "",
+            "attributes": [],
+            "droppedAttributesCount": 0
+          },
+          "metrics": [
+            {
+              "name": "counter_f64_test",
+              "description": "test_decription",
+              "unit": "test_unit",
+              "metadata": [],
+              "data": {
+                "sum": {
+                  "dataPoints": [
+                    {
+                      "attributes": [
+                        {
+                          "key": "mykey1",
+                          "value": {
+                            "stringValue": "myvalue1"
+                          }
+                        },
+                        {
+                          "key": "mykey2",
+                          "value": {
+                            "stringValue": "myvalue2"
+                          }
+                        }
+                      ],
+                      "startTimeUnixNano": 1720956818650403000,
+                      "timeUnixNano": 1720956878648924000,
+                      "exemplars": [],
+                      "flags": 0,
+                      "value": {
+                        "asDouble": 60.0
+                      }
+                    }
+                  ],
+                  "aggregationTemporality": 1,
+                  "isMonotonic": true
+                }
+              }
+            },
+            {
+              "name": "counter_u64_test",
+              "description": "test_decription",
+              "unit": "test_unit",
+              "metadata": [],
+              "data": {
+                "sum": {
+                  "dataPoints": [
+                    {
+                      "attributes": [
+                        {
+                          "key": "mykey1",
+                          "value": {
+                            "stringValue": "myvalue1"
+                          }
+                        },
+                        {
+                          "key": "mykey2",
+                          "value": {
+                            "stringValue": "myvalue2"
+                          }
+                        }
+                      ],
+                      "startTimeUnixNano": 1720956818650416000,
+                      "timeUnixNano": 1720956878648931000,
+                      "exemplars": [],
+                      "flags": 0,
+                      "value": {
+                        "asInt": 60
+                      }
+                    }
+                  ],
+                  "aggregationTemporality": 1,
+                  "isMonotonic": true
+                }
+              }
+            },
+            {
+              "name": "up_down_counter_i64_test",
+              "description": "",
+              "unit": "",
+              "metadata": [],
+              "data": {
+                "sum": {
+                  "dataPoints": [
+                    {
+                      "attributes": [
+                        {
+                          "key": "mykey1",
+                          "value": {
+                            "stringValue": "myvalue1"
+                          }
+                        },
+                        {
+                          "key": "mykey2",
+                          "value": {
+                            "stringValue": "myvalue2"
+                          }
+                        }
+                      ],
+                      "startTimeUnixNano": 1720956758646970000,
+                      "timeUnixNano": 1720956878648935000,
+                      "exemplars": [],
+                      "flags": 0,
+                      "value": {
+                        "asInt": 1200
+                      }
+                    }
+                  ],
+                  "aggregationTemporality": 2,
+                  "isMonotonic": false
+                }
+              }
+            },
+            {
+              "name": "up_down_counter_f64_test",
+              "description": "",
+              "unit": "",
+              "metadata": [],
+              "data": {
+                "sum": {
+                  "dataPoints": [
+                    {
+                      "attributes": [
+                        {
+                          "key": "mykey1",
+                          "value": {
+                            "stringValue": "myvalue1"
+                          }
+                        },
+                        {
+                          "key": "mykey2",
+                          "value": {
+                            "stringValue": "myvalue2"
+                          }
+                        }
+                      ],
+                      "startTimeUnixNano": 1720956758646982000,
+                      "timeUnixNano": 1720956878648941000,
+                      "exemplars": [],
+                      "flags": 0,
+                      "value": {
+                        "asDouble": 1200.0
+                      }
+                    }
+                  ],
+                  "aggregationTemporality": 2,
+                  "isMonotonic": false
+                }
+              }
+            },
+            {
+              "name": "histogram_f64_test",
+              "description": "test_description",
+              "unit": "",
+              "metadata": [],
+              "data": {
+                "histogram": {
+                  "dataPoints": [
+                    {
+                      "attributes": [
+                        {
+                          "key": "mykey1",
+                          "value": {
+                            "stringValue": "myvalue1"
+                          }
+                        },
+                        {
+                          "key": "mykey2",
+                          "value": {
+                            "stringValue": "myvalue2"
+                          }
+                        }
+                      ],
+                      "startTimeUnixNano": 1720956818650442000,
+                      "timeUnixNano": 1720956878648944000,
+                      "count": 60,
+                      "sum": 630.0,
+                      "bucketCounts": [
+                        0,
+                        0,
+                        0,
+                        60,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0
+                      ],
+                      "explicitBounds": [
+                        0.0,
+                        5.0,
+                        10.0,
+                        25.0,
+                        50.0,
+                        75.0,
+                        100.0,
+                        250.0,
+                        500.0,
+                        750.0,
+                        1000.0,
+                        2500.0,
+                        5000.0,
+                        7500.0,
+                        10000.0
+                      ],
+                      "exemplars": [],
+                      "flags": 0,
+                      "min": 10.5,
+                      "max": 10.5
+                    }
+                  ],
+                  "aggregationTemporality": 1
+                }
+              }
+            },
+            {
+              "name": "histogram_u64_test",
+              "description": "test_description",
+              "unit": "",
+              "metadata": [],
+              "data": {
+                "histogram": {
+                  "dataPoints": [
+                    {
+                      "attributes": [
+                        {
+                          "key": "mykey1",
+                          "value": {
+                            "stringValue": "myvalue1"
+                          }
+                        },
+                        {
+                          "key": "mykey2",
+                          "value": {
+                            "stringValue": "myvalue2"
+                          }
+                        }
+                      ],
+                      "startTimeUnixNano": 1720956818650457000,
+                      "timeUnixNano": 1720956878648950000,
+                      "count": 60,
+                      "sum": 600.0,
+                      "bucketCounts": [
+                        0,
+                        0,
+                        60,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0
+                      ],
+                      "explicitBounds": [
+                        0.0,
+                        5.0,
+                        10.0,
+                        25.0,
+                        50.0,
+                        75.0,
+                        100.0,
+                        250.0,
+                        500.0,
+                        750.0,
+                        1000.0,
+                        2500.0,
+                        5000.0,
+                        7500.0,
+                        10000.0
+                      ],
+                      "exemplars": [],
+                      "flags": 0,
+                      "min": 10.0,
+                      "max": 10.0
+                    }
+                  ],
+                  "aggregationTemporality": 1
+                }
+              }
+            },
+            {
+              "name": "observable_gauge_f64_test",
+              "description": "test_description",
+              "unit": "test_unit",
+              "metadata": [],
+              "data": {
+                "gauge": {
+                  "dataPoints": [
+                    {
+                      "attributes": [
+                        {
+                          "key": "mykey1",
+                          "value": {
+                            "stringValue": "myvalue1"
+                          }
+                        },
+                        {
+                          "key": "mykey2",
+                          "value": {
+                            "stringValue": "myvalue2"
+                          }
+                        }
+                      ],
+                      "startTimeUnixNano": 0,
+                      "timeUnixNano": 1720956878648867000,
+                      "exemplars": [],
+                      "flags": 0,
+                      "value": {
+                        "asDouble": 1.0
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "observable_gauge_u64_test",
+              "description": "test_description",
+              "unit": "test_unit",
+              "metadata": [],
+              "data": {
+                "gauge": {
+                  "dataPoints": [
+                    {
+                      "attributes": [
+                        {
+                          "key": "mykey1",
+                          "value": {
+                            "stringValue": "myvalue1"
+                          }
+                        },
+                        {
+                          "key": "mykey2",
+                          "value": {
+                            "stringValue": "myvalue2"
+                          }
+                        }
+                      ],
+                      "startTimeUnixNano": 0,
+                      "timeUnixNano": 1720956878648884000,
+                      "exemplars": [],
+                      "flags": 0,
+                      "value": {
+                        "asInt": 1
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "observable_counter_u64_test",
+              "description": "test_description",
+              "unit": "test_unit",
+              "metadata": [],
+              "data": {
+                "sum": {
+                  "dataPoints": [
+                    {
+                      "attributes": [
+                        {
+                          "key": "mykey1",
+                          "value": {
+                            "stringValue": "myvalue1"
+                          }
+                        },
+                        {
+                          "key": "mykey2",
+                          "value": {
+                            "stringValue": "myvalue2"
+                          }
+                        }
+                      ],
+                      "startTimeUnixNano": 1720956818650472000,
+                      "timeUnixNano": 1720956878648959000,
+                      "exemplars": [],
+                      "flags": 0,
+                      "value": {
+                        "asInt": 0
+                      }
+                    }
+                  ],
+                  "aggregationTemporality": 1,
+                  "isMonotonic": true
+                }
+              }
+            },
+            {
+              "name": "observable_counter_f64_test",
+              "description": "test_description",
+              "unit": "test_unit",
+              "metadata": [],
+              "data": {
+                "sum": {
+                  "dataPoints": [
+                    {
+                      "attributes": [
+                        {
+                          "key": "mykey1",
+                          "value": {
+                            "stringValue": "myvalue1"
+                          }
+                        },
+                        {
+                          "key": "mykey2",
+                          "value": {
+                            "stringValue": "myvalue2"
+                          }
+                        }
+                      ],
+                      "startTimeUnixNano": 1720956818650486000,
+                      "timeUnixNano": 1720956878648965000,
+                      "exemplars": [],
+                      "flags": 0,
+                      "value": {
+                        "asDouble": 0.0
+                      }
+                    }
+                  ],
+                  "aggregationTemporality": 1,
+                  "isMonotonic": true
+                }
+              }
+            },
+            {
+              "name": "observable_up_down_counter_i64_test",
+              "description": "test_description",
+              "unit": "test_unit",
+              "metadata": [],
+              "data": {
+                "sum": {
+                  "dataPoints": [
+                    {
+                      "attributes": [
+                        {
+                          "key": "mykey1",
+                          "value": {
+                            "stringValue": "myvalue1"
+                          }
+                        },
+                        {
+                          "key": "mykey2",
+                          "value": {
+                            "stringValue": "myvalue2"
+                          }
+                        }
+                      ],
+                      "startTimeUnixNano": 1720956758647147000,
+                      "timeUnixNano": 1720956878648969000,
+                      "exemplars": [],
+                      "flags": 0,
+                      "value": {
+                        "asInt": 100
+                      }
+                    }
+                  ],
+                  "aggregationTemporality": 2,
+                  "isMonotonic": false
+                }
+              }
+            },
+            {
+              "name": "observable_up_down_counter_f64_test",
+              "description": "test_description",
+              "unit": "test_unit",
+              "metadata": [],
+              "data": {
+                "sum": {
+                  "dataPoints": [
+                    {
+                      "attributes": [
+                        {
+                          "key": "mykey1",
+                          "value": {
+                            "stringValue": "myvalue1"
+                          }
+                        },
+                        {
+                          "key": "mykey2",
+                          "value": {
+                            "stringValue": "myvalue2"
+                          }
+                        }
+                      ],
+                      "startTimeUnixNano": 1720956758647158000,
+                      "timeUnixNano": 1720956878648975000,
+                      "exemplars": [],
+                      "flags": 0,
+                      "value": {
+                        "asDouble": 100.0
+                      }
+                    }
+                  ],
+                  "aggregationTemporality": 2,
+                  "isMonotonic": false
+                }
+              }
+            }
+          ],
+          "schemaUrl": ""
+        }
+      ],
+      "schemaUrl": ""
+    }
+  ]
+}
