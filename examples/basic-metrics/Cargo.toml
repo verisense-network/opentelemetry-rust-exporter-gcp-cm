@@ -12,8 +12,6 @@ opentelemetry_gcloud_monitoring_exporter = { path = "../..", features = [
     "opentelemetry_0_24",
     "gcp_auth",
 ] }
-
-# opentelemetry-rust-exporter-gcp-cm = { path = "../.." }
 tokio = { version = "1.0", features = ["full"] }
 opentelemetry = { version = "0.24", features = ["metrics"] }
 opentelemetry_sdk = { version = "0.24", features = ["metrics", "rt-tokio"] }
