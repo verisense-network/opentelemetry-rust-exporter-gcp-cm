@@ -1,9 +1,6 @@
-[workspace]
-members = ["examples/*"]
-
 [package]
 name = "opentelemetry_gcloud_monitoring_exporter"
-version = "0.11.3"
+version = "0.11.4"
 description = "Provides support for exporting metrics to Google Cloud Monitoring."
 readme = "README.md"
 keywords = ["opentelemetry", "metrics", "exporter", "gcp", "cloud-monitoring"]
