@@ -19,7 +19,7 @@ mod tests {
         metrics::{Aggregation, Instrument, PeriodicReader, SdkMeterProvider, Stream},
         runtime, Resource,
     };
-    use pretty_assertions_sorted::{assert_eq, assert_eq_all_sorted, assert_eq_sorted};
+    use pretty_assertions_sorted_fork::{assert_eq, assert_eq_all_sorted, assert_eq_sorted};
     use prost::Message;
     use std::collections::HashMap;
 
