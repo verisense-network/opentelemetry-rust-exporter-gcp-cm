@@ -98,7 +98,6 @@ opentelemetry_resourcedetector_gcp_rust_0_9_pkg = { package = "opentelemetry_res
 opentelemetry_resourcedetector_gcp_rust_0_10_pkg = { package = "opentelemetry_resourcedetector_gcp_rust", version = "0.10", optional = true }
 opentelemetry_resourcedetector_gcp_rust_0_11_pkg = { package = "opentelemetry_resourcedetector_gcp_rust", version = "0.11", optional = true }
 
-eventheader = { version = "0.4.0" }
 async-trait = "0.1"
 
 # json serializer/deserializer
