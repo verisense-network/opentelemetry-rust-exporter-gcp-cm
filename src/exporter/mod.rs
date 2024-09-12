@@ -565,7 +565,7 @@ impl GCPMetricsExporter {
                 let mut msc = MetricServiceClient::new(channel);
                 if let Err(err) = msc.create_time_series(req).await {
                     global::handle_error(MetricsError::Other(format!(
-                        "GCPMetricsExporter: Retry send time series: {:?}",
+                        "GCPMetricsExporter: Cant send time series: {:?}",
                         err
                     )));
                     match err.code() {
@@ -580,8 +580,8 @@ impl GCPMetricsExporter {
                         }
                         _ => {
                             global::handle_error(MetricsError::Other(format!(
-                                "GCPMetricsExporter: Cant send time series: {:?} Request: {:#?}",
-                                err, create_time_series_request
+                                "GCPMetricsExporter: Cant send time series: Request: {:#?}",
+                                create_time_series_request
                             )));
                             break;
                         }
