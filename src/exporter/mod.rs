@@ -536,10 +536,12 @@ impl GCPMetricsExporter {
                     ));
                 }
                 // println!("chunk: {:#?}", chunk);
-                let mut req = tonic::Request::new(CreateTimeSeriesRequest {
+                // todo optimize clones
+                let create_time_series_request = CreateTimeSeriesRequest {
                     name: format!("projects/{}", project_id),
                     time_series: chunk.clone(),
-                });
+                };
+                let mut req = tonic::Request::new(create_time_series_request.clone());
                 match self.authorizer.token().await {
                     Ok(token) => {
                         req.metadata_mut().insert(
@@ -576,7 +578,13 @@ impl GCPMetricsExporter {
                             sleep(Duration::from_millis(200)).await;
                             continue;
                         }
-                        _ => break,
+                        _ => {
+                            global::handle_error(MetricsError::Other(format!(
+                                "GCPMetricsExporter: Cant send time series: {:?} Request: {:#?}",
+                                err, create_time_series_request
+                            )));
+                            break;
+                        }
                     }
                 } else {
                     break;
