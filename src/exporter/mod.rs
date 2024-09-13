@@ -535,12 +535,12 @@ impl GCPMetricsExporter {
                         "GCPMetricsExporter: Cant send time series".into(),
                     ));
                 }
-                // println!("chunk: {:#?}", chunk);
                 // todo optimize clones
                 let create_time_series_request = CreateTimeSeriesRequest {
                     name: format!("projects/{}", project_id),
                     time_series: chunk.clone(),
                 };
+                // println!("chunk: {:?}", create_time_series_request);
                 let mut req = tonic::Request::new(create_time_series_request.clone());
                 match self.authorizer.token().await {
                     Ok(token) => {
@@ -580,7 +580,7 @@ impl GCPMetricsExporter {
                         }
                         _ => {
                             global::handle_error(MetricsError::Other(format!(
-                                "GCPMetricsExporter: Cant send time series: Request: {:#?}",
+                                "GCPMetricsExporter: Cant send time series: Request: {:?}",
                                 create_time_series_request
                             )));
                             break;
