@@ -48,7 +48,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let reader = PeriodicReader::builder(exporter, runtime::Tokio).build();
     let gcp_detector = GoogleCloudResourceDetector::new().await;
     // if we deploy to cloud run or vm instance in gcp we should specify namespace
-    // if we dont have namespace we cant specify it how 'default'
+    // if we don't have namespace we can specify it how 'default'
     let res0 = Resource::new(vec![KeyValue::new("service.namespace", "default")]);
     let res = Resource::default().merge(&gcp_detector.get_resource());
     let res = res.merge(&res0);
