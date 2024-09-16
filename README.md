@@ -47,7 +47,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let exporter = GCPMetricsExporter::new_gcp_auth(cfg).await?;
     let reader = PeriodicReader::builder(exporter, runtime::Tokio).build();
     let gcp_detector = GoogleCloudResourceDetector::new().await;
-    let res = Resource::default().merge(&rname);
+    // if we deploy to cloud run or vm instance in gcp we should specify namespace
+    // if we dont have namespace we cant specify it how 'default'
+    let res0 = Resource::new(vec![KeyValue::new("service.namespace", "default")]);
+    let res = Resource::default().merge(&gcp_detector.get_resource());
+    let res = res.merge(&res0);
     SdkMeterProvider::builder()
         .with_resource(res)
         .with_reader(reader)
