@@ -207,6 +207,8 @@ impl GCPMetricsExporter {
         let unit = metric.unit.as_str().to_string();
         #[cfg(any(feature = "opentelemetry_0_24",))]
         let unit = metric.unit.to_string();
+        #[cfg(any(feature = "opentelemetry_0_25",))]
+        let unit = metric.unit.to_string();
         let mut descriptor = MetricDescriptor {
             r#type: descriptor_type.clone(),
             display_name: metric.name.to_string(),

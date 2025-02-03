@@ -94,27 +94,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_description("test_description")
         .init();
 
-    meter.register_callback(&[gauge.as_any()], move |observer| {
-        observer.observe_f64(
-            &gauge,
-            1.0,
-            &[
-                KeyValue::new("mykey1", "myvalue1"),
-                KeyValue::new("mykey2", "myvalue2"),
-            ],
-        )
-    })?;
+    // meter.register_callback(&[gauge.as_any()], move |observer| {
+    //     observer.observe_f64(
+    //         &gauge,
+    //         1.0,
+    //         &[
+    //             KeyValue::new("mykey1", "myvalue1"),
+    //             KeyValue::new("mykey2", "myvalue2"),
+    //         ],
+    //     )
+    // })?;
 
-    meter.register_callback(&[gauge2.as_any()], move |observer| {
-        observer.observe_u64(
-            &gauge2,
-            1,
-            &[
-                KeyValue::new("mykey1", "myvalue1"),
-                KeyValue::new("mykey2", "myvalue2"),
-            ],
-        )
-    })?;
+    // meter.register_callback(&[gauge2.as_any()], move |observer| {
+    //     observer.observe_u64(
+    //         &gauge2,
+    //         1,
+    //         &[
+    //             KeyValue::new("mykey1", "myvalue1"),
+    //             KeyValue::new("mykey2", "myvalue2"),
+    //         ],
+    //     )
+    // })?;
 
     // Create a ObservableCounter instrument and register a callback that reports the measurement.
     let observable_counter = meter
@@ -129,27 +129,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_unit("test_unit")
         .init();
 
-    meter.register_callback(&[observable_counter.as_any()], move |observer| {
-        observer.observe_u64(
-            &observable_counter,
-            100,
-            &[
-                KeyValue::new("mykey1", "myvalue1"),
-                KeyValue::new("mykey2", "myvalue2"),
-            ],
-        )
-    })?;
+    // meter.register_callback(&[observable_counter.as_any()], move |observer| {
+    //     observer.observe_u64(
+    //         &observable_counter,
+    //         100,
+    //         &[
+    //             KeyValue::new("mykey1", "myvalue1"),
+    //             KeyValue::new("mykey2", "myvalue2"),
+    //         ],
+    //     )
+    // })?;
 
-    meter.register_callback(&[observable_counter2.as_any()], move |observer| {
-        observer.observe_f64(
-            &observable_counter2,
-            100.0,
-            &[
-                KeyValue::new("mykey1", "myvalue1"),
-                KeyValue::new("mykey2", "myvalue2"),
-            ],
-        )
-    })?;
+    // meter.register_callback(&[observable_counter2.as_any()], move |observer| {
+    //     observer.observe_f64(
+    //         &observable_counter2,
+    //         100.0,
+    //         &[
+    //             KeyValue::new("mykey1", "myvalue1"),
+    //             KeyValue::new("mykey2", "myvalue2"),
+    //         ],
+    //     )
+    // })?;
 
     // Create a Observable UpDownCounter instrument and register a callback that reports the measurement.
     let observable_up_down_counter = meter
@@ -163,27 +163,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_unit("test_unit")
         .init();
 
-    meter.register_callback(&[observable_up_down_counter.as_any()], move |observer| {
-        observer.observe_i64(
-            &observable_up_down_counter,
-            100,
-            &[
-                KeyValue::new("mykey1", "myvalue1"),
-                KeyValue::new("mykey2", "myvalue2"),
-            ],
-        )
-    })?;
+    // meter.register_callback(&[observable_up_down_counter.as_any()], move |observer| {
+    //     observer.observe_i64(
+    //         &observable_up_down_counter,
+    //         100,
+    //         &[
+    //             KeyValue::new("mykey1", "myvalue1"),
+    //             KeyValue::new("mykey2", "myvalue2"),
+    //         ],
+    //     )
+    // })?;
 
-    meter.register_callback(&[observable_up_down_counter2.as_any()], move |observer| {
-        observer.observe_f64(
-            &observable_up_down_counter2,
-            100.0,
-            &[
-                KeyValue::new("mykey1", "myvalue1"),
-                KeyValue::new("mykey2", "myvalue2"),
-            ],
-        )
-    })?;
+    // meter.register_callback(&[observable_up_down_counter2.as_any()], move |observer| {
+    //     observer.observe_f64(
+    //         &observable_up_down_counter2,
+    //         100.0,
+    //         &[
+    //             KeyValue::new("mykey1", "myvalue1"),
+    //             KeyValue::new("mykey2", "myvalue2"),
+    //         ],
+    //     )
+    // })?;
 
     loop {
         // Record measurements using the Counter instrument.

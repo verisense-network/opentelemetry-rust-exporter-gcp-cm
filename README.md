@@ -13,15 +13,15 @@ or add to cargo.toml
 
 ```
 [dependencies]
-opentelemetry_gcloud_monitoring_exporter = { version = "0.11", features = [
+opentelemetry_gcloud_monitoring_exporter = { version = "0.12", features = [
     "tokio",
-    "opentelemetry_0_24",
+    "opentelemetry_0_25",
     "gcp_auth",
 ] }
 tokio = { version = "1.0", features = ["full"] }
-opentelemetry = { version = "0.24", features = ["metrics"] }
-opentelemetry_sdk = { version = "0.24", features = ["metrics", "rt-tokio"] }
-opentelemetry_resourcedetector_gcp_rust = "0.11"
+opentelemetry = { version = "0.25", features = ["metrics"] }
+opentelemetry_sdk = { version = "0.25", features = ["metrics", "rt-tokio"] }
+opentelemetry_resourcedetector_gcp_rust = "0.12"
 ```
 
 # Usage
