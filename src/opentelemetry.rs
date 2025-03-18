@@ -4,6 +4,17 @@
 #[macro_export]
 macro_rules! import_opentelemetry {
     () => {
+        #[cfg(feature = "opentelemetry_0_27")]
+        #[allow(unused_imports)]
+        use opentelemetry_0_27_pkg as opentelemetry;
+
+        #[cfg(feature = "opentelemetry_0_27")]
+        use opentelemetry_sdk_0_27_pkg as opentelemetry_sdk;
+
+        #[cfg(feature = "opentelemetry_0_27")]
+        #[allow(unused_imports)]
+        use opentelemetry_resourcedetector_gcp_rust_0_14_pkg as opentelemetry_resourcedetector_gcp_rust;
+
         #[cfg(feature = "opentelemetry_0_26")]
         #[allow(unused_imports)]
         use opentelemetry_0_26_pkg as opentelemetry;
