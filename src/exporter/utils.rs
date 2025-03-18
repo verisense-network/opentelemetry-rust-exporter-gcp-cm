@@ -5,6 +5,7 @@ crate::import_opentelemetry!();
     // feature = "opentelemetry_0_23",
     feature = "opentelemetry_0_24",
     feature = "opentelemetry_0_25",
+    feature = "opentelemetry_0_26",
 ))]
 use opentelemetry::KeyValue;
 use opentelemetry::{global, metrics::MetricsError};
@@ -136,6 +137,7 @@ fn sanitize_string(s: &str) -> String {
     // feature = "opentelemetry_0_23",
     feature = "opentelemetry_0_24",
     feature = "opentelemetry_0_25",
+    feature = "opentelemetry_0_26",
 ))]
 pub(crate) fn kv_map_normalize_k_v(kv: &KeyValue) -> (String, String) {
     (
@@ -150,6 +152,7 @@ pub(crate) fn kv_map_normalize_k_v(kv: &KeyValue) -> (String, String) {
     // feature = "opentelemetry_0_23",
     feature = "opentelemetry_0_24",
     feature = "opentelemetry_0_25",
+    feature = "opentelemetry_0_26",
 ))]
 pub(crate) fn kv_map_k(kv: &KeyValue) -> String {
     kv.key.to_string()

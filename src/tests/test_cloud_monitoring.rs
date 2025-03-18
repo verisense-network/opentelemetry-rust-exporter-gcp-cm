@@ -23,7 +23,7 @@ mod tests {
     use prost::Message;
     use std::collections::HashMap;
 
-    #[cfg(any(feature = "opentelemetry_0_25",))]
+    #[cfg(any(feature = "opentelemetry_0_25", feature = "opentelemetry_0_26",))]
     fn my_unit() -> String {
         "myunit".to_string()
     }

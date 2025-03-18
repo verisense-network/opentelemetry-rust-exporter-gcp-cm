@@ -22,6 +22,14 @@ use opentelemetry::{
     metrics::{MetricsError, Result as MetricsResult},
 };
 use opentelemetry_resourcedetector_gcp_rust::mapping::get_monitored_resource;
+#[cfg(any(
+    feature = "opentelemetry_0_21",
+    feature = "opentelemetry_0_22",
+    feature = "opentelemetry_0_23",
+    feature = "opentelemetry_0_24",
+    feature = "opentelemetry_0_25",
+))]
+use opentelemetry_sdk::metrics::reader::{AggregationSelector, DefaultAggregationSelector};
 use opentelemetry_sdk::metrics::{
     data::{
         ExponentialHistogram as SdkExponentialHistogram, Gauge as SdkGauge,
@@ -29,9 +37,10 @@ use opentelemetry_sdk::metrics::{
         Sum as SdkSum, Temporality,
     },
     exporter::PushMetricsExporter,
-    reader::{AggregationSelector, DefaultAggregationSelector, TemporalitySelector},
+    reader::TemporalitySelector,
     InstrumentKind,
 };
+
 use rand::Rng;
 use std::{
     collections::{HashMap, HashSet},
@@ -165,6 +174,13 @@ impl TemporalitySelector for GCPMetricsExporter {
     }
 }
 
+#[cfg(any(
+    feature = "opentelemetry_0_21",
+    feature = "opentelemetry_0_22",
+    feature = "opentelemetry_0_23",
+    feature = "opentelemetry_0_24",
+    feature = "opentelemetry_0_25",
+))]
 impl AggregationSelector for GCPMetricsExporter {
     // TODO: this should ideally be done at SDK level by default
     // without exporters having to do it.
@@ -207,7 +223,7 @@ impl GCPMetricsExporter {
         let unit = metric.unit.as_str().to_string();
         #[cfg(any(feature = "opentelemetry_0_24",))]
         let unit = metric.unit.to_string();
-        #[cfg(any(feature = "opentelemetry_0_25",))]
+        #[cfg(any(feature = "opentelemetry_0_25", feature = "opentelemetry_0_26",))]
         let unit = metric.unit.to_string();
         let mut descriptor = MetricDescriptor {
             r#type: descriptor_type.clone(),
