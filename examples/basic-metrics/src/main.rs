@@ -4,8 +4,8 @@ use opentelemetry_gcloud_monitoring_exporter::{
 };
 use opentelemetry_resourcedetector_gcp_rust::GoogleCloudResourceDetector;
 use opentelemetry_sdk::{
-    metrics::{PeriodicReader, SdkMeterProvider},
-    Resource,
+    metrics::{periodic_reader_with_async_runtime, SdkMeterProvider},
+    runtime, Resource,
 };
 use serde_json::json;
 use std::collections::HashMap;
@@ -32,8 +32,11 @@ async fn init_metrics() -> Result<SdkMeterProvider, Box<dyn std::error::Error>> 
         },
     );
     let exporter = GCPMetricsExporter::new_gcp_auth(cfg).await?;
-    // let reader = PeriodicReader::builder(exporter, runtime::Tokio).build();
-    let reader = PeriodicReader::builder(exporter).build();
+    // https://github.com/open-telemetry/opentelemetry-rust/blob/main/opentelemetry-sdk/CHANGELOG.md#0280
+    let reader =
+        periodic_reader_with_async_runtime::PeriodicReader::builder(exporter, runtime::Tokio)
+            .build();
+    // let reader = PeriodicReader::builder(exporter).build();
     let gcp_detector = Box::new(GoogleCloudResourceDetector::new().await);
     // https://cloud.google.com/monitoring/api/resources#tag_global
     let res = Resource::builder_empty()

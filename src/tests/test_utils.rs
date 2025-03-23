@@ -6,7 +6,9 @@ use opentelemetry_sdk;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use opentelemetry_sdk::metrics::{PeriodicReader, SdkMeterProvider};
+use opentelemetry_sdk::metrics::{
+    periodic_reader_with_async_runtime::PeriodicReader, SdkMeterProvider,
+};
 use opentelemetry_sdk::Resource;
 use prost::Message;
 use tokio::sync::RwLock;
@@ -184,11 +186,14 @@ impl MetricService for MyMetricService {
 
 #[cfg(test)]
 pub(crate) fn init_metrics(res_attributes: Vec<opentelemetry::KeyValue>) -> SdkMeterProvider {
+    use opentelemetry_sdk::runtime;
+
     let res = Resource::builder_empty()
         .with_attributes(res_attributes.clone())
         .build();
     let exporter = crate::GCPMetricsExporter::fake_new();
-    let reader = PeriodicReader::builder(exporter).build();
+    // let reader = PeriodicReader::builder(exporter).build();
+    let reader = PeriodicReader::builder(exporter, runtime::Tokio).build();
     SdkMeterProvider::builder()
         .with_resource(res)
         .with_reader(reader)

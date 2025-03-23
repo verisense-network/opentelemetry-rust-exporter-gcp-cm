@@ -19,7 +19,11 @@ opentelemetry_gcloud_monitoring_exporter = { path = "../..", features = [
 ] }
 tokio = { version = "1.0", features = ["full"] }
 opentelemetry = { version = "0.28", features = ["metrics"] }
-opentelemetry_sdk = { version = "0.28", features = ["metrics", "rt-tokio"] }
+opentelemetry_sdk = { version = "0.28", features = [
+    "metrics",
+    "rt-tokio",
+    "experimental_metrics_periodicreader_with_async_runtime",
+] }
 opentelemetry_resourcedetector_gcp_rust = "0.15.0"
 ```
 
@@ -30,7 +34,7 @@ use opentelemetry::{metrics::MeterProvider as _, KeyValue};
 use opentelemetry_gcloud_monitoring_exporter::{GCPMetricsExporter, GCPMetricsExporterConfig};
 use opentelemetry_resourcedetector_gcp_rust::GoogleCloudResourceDetector;
 use opentelemetry_sdk::{
-    metrics::{PeriodicReader, SdkMeterProvider},
+    metrics::{periodic_reader_with_async_runtime, SdkMeterProvider},
     Resource,
 };
 use std::time::Duration;
@@ -40,7 +44,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut cfg = GCPMetricsExporterConfig::default();
     cfg.prefix = "custom.googleapis.com/test_service".to_string();
     let exporter = GCPMetricsExporter::new_gcp_auth(cfg).await?;
-    let reader = PeriodicReader::builder(exporter).build();
+        // https://github.com/open-telemetry/opentelemetry-rust/blob/main/opentelemetry-sdk/CHANGELOG.md#0280
+    let reader =
+        periodic_reader_with_async_runtime::PeriodicReader::builder(exporter, runtime::Tokio)
+            .build();
+    // let reader = PeriodicReader::builder(exporter).build();
     let gcp_detector = Box::new(GoogleCloudResourceDetector::new().await);
     // if we deploy to cloud run or vm instance in gcp we should specify namespace
     // if we don't have namespace we can specify it how 'default'

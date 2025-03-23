@@ -15,8 +15,12 @@ mod tests {
     use opentelemetry::metrics::MeterProvider;
     use opentelemetry::KeyValue;
     use opentelemetry_sdk::metrics::InstrumentKind;
+    use opentelemetry_sdk::runtime;
     use opentelemetry_sdk::{
-        metrics::{Aggregation, Instrument, PeriodicReader, SdkMeterProvider, Stream},
+        metrics::{
+            periodic_reader_with_async_runtime::PeriodicReader, Aggregation, Instrument,
+            SdkMeterProvider, Stream,
+        },
         Resource,
     };
     use pretty_assertions_sorted_fork::{assert_eq, assert_eq_all_sorted, assert_eq_sorted};
@@ -257,7 +261,7 @@ mod tests {
         let _m = THE_RESOURCE.lock().unwrap();
         let calls = get_gcm_calls().await;
         let exporter = crate::GCPMetricsExporter::fake_new();
-        let reader = PeriodicReader::builder(exporter).build();
+        let reader = PeriodicReader::builder(exporter, runtime::Tokio).build();
         let my_view_change_aggregation = |i: &Instrument| {
             if i.name == "my_single_bucket_histogram" {
                 if let Some(InstrumentKind::Histogram) = i.kind {
