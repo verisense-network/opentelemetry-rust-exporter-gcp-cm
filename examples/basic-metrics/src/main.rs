@@ -35,6 +35,7 @@ async fn init_metrics() -> Result<SdkMeterProvider, Box<dyn std::error::Error>> 
     // https://github.com/open-telemetry/opentelemetry-rust/blob/main/opentelemetry-sdk/CHANGELOG.md#0280
     let reader =
         periodic_reader_with_async_runtime::PeriodicReader::builder(exporter, runtime::Tokio)
+            .with_interval(Duration::from_secs(15))
             .build();
     // let reader = PeriodicReader::builder(exporter).build();
     let gcp_detector = Box::new(GoogleCloudResourceDetector::new().await);
@@ -246,6 +247,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
         // println!("recorded metrics");
         // Sleep for 0.1 second
-        tokio::time::sleep(Duration::from_millis(300)).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
     }
 }
