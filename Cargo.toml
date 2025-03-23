@@ -11,7 +11,7 @@ repository = "https://github.com/Sergo007/opentelemetry-rust-exporter-gcp-cm"
 authors = ["Yatsina Serhii <yatsyna.sergey@gmail.com>"]
 license = "Apache-2.0"
 edition = "2021"
-rust-version = "1.70"
+rust-version = "1.75"
 
 [lib]
 doctest = false
@@ -152,7 +152,8 @@ async-trait = "0.1"
 # json serializer/deserializer
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-derive_more = "0.99"
+derive_more = { version = "2.0.1", features = ["full"] }
+url = { version = "2.5.0", package = "url" }
 # Google sdk
 gcp_auth = { version = "0.12", optional = true }
 # gcloud-sdk = { version = "0.25", features = ["tls-roots", "google-monitoring-v3"] }
