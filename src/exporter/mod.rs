@@ -125,7 +125,7 @@ impl Default for GCPMetricsExporterConfig {
 
 impl GCPMetricsExporter {
     pub fn new(authorizer: AuthorizerType, config: GCPMetricsExporterConfig) -> Self {
-        let my_rundom = format!("{:08x}", rand::thread_rng().gen_range(0..u32::MAX));
+        let my_rundom = format!("{:08x}", rand::rng().random_range(0..u32::MAX));
         Self {
             prefix: config.prefix,
             add_unique_identifier: config.add_unique_identifier,

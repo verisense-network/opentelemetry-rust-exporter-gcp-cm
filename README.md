@@ -13,31 +13,27 @@ or add to cargo.toml
 
 ```
 [dependencies]
-opentelemetry_gcloud_monitoring_exporter = { version = "0.12", features = [
+opentelemetry_gcloud_monitoring_exporter = { version = "0.14", features = [
     "tokio",
-    "opentelemetry_0_25",
+    "opentelemetry_0_27",
     "gcp_auth",
 ] }
 tokio = { version = "1.0", features = ["full"] }
-opentelemetry = { version = "0.25", features = ["metrics"] }
-opentelemetry_sdk = { version = "0.25", features = ["metrics", "rt-tokio"] }
-opentelemetry_resourcedetector_gcp_rust = "0.12"
+opentelemetry = { version = "0.27", features = ["metrics"] }
+opentelemetry_sdk = { version = "0.27", features = ["metrics", "rt-tokio"] }
+opentelemetry_resourcedetector_gcp_rust = "0.14"
 ```
 
 # Usage
 
 ```rust
 use opentelemetry::{metrics::MeterProvider as _, KeyValue};
-use opentelemetry_gcloud_monitoring_exporter::{
-    GCPMetricsExporter, GCPMetricsExporterConfig, MonitoredResourceDataConfig,
-};
+use opentelemetry_gcloud_monitoring_exporter::{GCPMetricsExporter, GCPMetricsExporterConfig};
 use opentelemetry_resourcedetector_gcp_rust::GoogleCloudResourceDetector;
 use opentelemetry_sdk::{
     metrics::{PeriodicReader, SdkMeterProvider},
     runtime, Resource,
 };
-use serde_json::json;
-use std::collections::HashMap;
 use std::time::Duration;
 
 #[tokio::main]
@@ -52,7 +48,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let res0 = Resource::new(vec![KeyValue::new("service.namespace", "default")]);
     let res = Resource::default().merge(&gcp_detector.get_resource());
     let res = res.merge(&res0);
-    SdkMeterProvider::builder()
+    let meter_provider = SdkMeterProvider::builder()
         .with_resource(res)
         .with_reader(reader)
         .build();
@@ -63,7 +59,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .f64_counter("counter_f64_test")
         .with_description("test_decription")
         .with_unit("test_unit")
-        .init();
+        .build();
 
     loop {
         // Record measurements using the Counter instrument.
