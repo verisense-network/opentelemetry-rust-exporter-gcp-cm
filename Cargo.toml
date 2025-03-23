@@ -17,7 +17,8 @@ rust-version = "1.70"
 doctest = false
 
 [features]
-default = ["rt_tokio_opentelemetry_sdk_0_27", "opentelemetry_0_27", "gcp_auth"]
+default = []
+# default = ["rt_tokio_opentelemetry_sdk_0_27", "opentelemetry_0_27", "gcp_auth"]
 # default = ["tokio", "opentelemetry_0_24", "gcp_auth"]
 gcp_auth = ["dep:gcp_auth"]
 tokio = ["dep:tokio"]
@@ -138,7 +139,8 @@ opentelemetry_sdk_0_26_pkg = { package = "opentelemetry_sdk", version = "0.26", 
     "metrics",
 ], optional = true }
 opentelemetry_sdk_0_27_pkg = { package = "opentelemetry_sdk", version = "0.27", features = [
-    "metrics", "spec_unstable_metrics_views",
+    "metrics",
+    "spec_unstable_metrics_views",
 ], optional = true }
 
 opentelemetry_resourcedetector_gcp_rust_0_8_pkg = { package = "opentelemetry_resourcedetector_gcp_rust", version = "0.8", optional = true }
