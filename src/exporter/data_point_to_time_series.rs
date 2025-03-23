@@ -1,4 +1,3 @@
-crate::import_opentelemetry!();
 use super::{
     to_f64::{ToF64, ToI64},
     utils::kv_map_normalize_k_v,
@@ -13,7 +12,7 @@ use opentelemetry_sdk::metrics::data;
 use std::time::SystemTime;
 
 pub fn convert_f64<T: ToF64 + Copy>(
-    data_point: &data::DataPoint<T>,
+    data_point: &data::SumDataPoint<T>,
     descriptor: &MetricDescriptor,
     monitored_resource_data: &Option<gcloud_sdk::google::api::MonitoredResource>,
     add_unique_identifier: bool,
@@ -77,7 +76,7 @@ pub fn convert_f64<T: ToF64 + Copy>(
 }
 
 pub fn convert_i64<T: ToI64 + Copy>(
-    data_point: &data::DataPoint<T>,
+    data_point: &data::SumDataPoint<T>,
     descriptor: &MetricDescriptor,
     monitored_resource_data: &Option<gcloud_sdk::google::api::MonitoredResource>,
     add_unique_identifier: bool,

@@ -1,24 +1,5 @@
-crate::import_opentelemetry!();
-#[cfg(any(
-    // feature = "opentelemetry_0_21",
-    // feature = "opentelemetry_0_22",
-    // feature = "opentelemetry_0_23",
-    feature = "opentelemetry_0_24",
-    feature = "opentelemetry_0_25",
-    feature = "opentelemetry_0_26",
-    feature = "opentelemetry_0_27",
-))]
 use opentelemetry::KeyValue;
-#[cfg(any(
-    feature = "opentelemetry_0_21",
-    feature = "opentelemetry_0_22",
-    feature = "opentelemetry_0_23",
-    feature = "opentelemetry_0_24",
-    feature = "opentelemetry_0_25",
-    feature = "opentelemetry_0_26",
-))]
-use opentelemetry::{global, metrics::MetricsError};
-#[cfg(any(feature = "opentelemetry_0_27",))]
+
 use opentelemetry_sdk::metrics::MetricError as MetricsError;
 
 use opentelemetry_sdk::metrics::data::{
@@ -29,16 +10,6 @@ use std::any::Any;
 use std::collections::HashSet;
 
 pub(crate) fn log_warning(err: MetricsError) {
-    #[cfg(any(
-        feature = "opentelemetry_0_21",
-        feature = "opentelemetry_0_22",
-        feature = "opentelemetry_0_23",
-        feature = "opentelemetry_0_24",
-        feature = "opentelemetry_0_25",
-        feature = "opentelemetry_0_26",
-    ))]
-    global::handle_error(err);
-    #[cfg(any(feature = "opentelemetry_0_27",))]
     tracing::warn!("{}", err);
 }
 
@@ -156,15 +127,6 @@ fn sanitize_string(s: &str) -> String {
         .collect::<String>()
 }
 
-#[cfg(any(
-    // feature = "opentelemetry_0_21",
-    // feature = "opentelemetry_0_22",
-    // feature = "opentelemetry_0_23",
-    feature = "opentelemetry_0_24",
-    feature = "opentelemetry_0_25",
-    feature = "opentelemetry_0_26",
-    feature = "opentelemetry_0_27",
-))]
 pub(crate) fn kv_map_normalize_k_v(kv: &KeyValue) -> (String, String) {
     (
         normalize_label_key(&kv.key.to_string()),
@@ -172,36 +134,10 @@ pub(crate) fn kv_map_normalize_k_v(kv: &KeyValue) -> (String, String) {
     )
 }
 
-#[cfg(any(
-    // feature = "opentelemetry_0_21",
-    // feature = "opentelemetry_0_22",
-    // feature = "opentelemetry_0_23",
-    feature = "opentelemetry_0_24",
-    feature = "opentelemetry_0_25",
-    feature = "opentelemetry_0_26",
-    feature = "opentelemetry_0_27",
-))]
 pub(crate) fn kv_map_k(kv: &KeyValue) -> String {
     kv.key.to_string()
 }
-#[cfg(any(
-    feature = "opentelemetry_0_21",
-    feature = "opentelemetry_0_22",
-    feature = "opentelemetry_0_23",
-))]
-pub(crate) fn kv_map_normalize_k_v(
-    kv: (&opentelemetry::Key, &opentelemetry::Value),
-) -> (String, String) {
-    (normalize_label_key(&kv.0.to_string()), kv.1.to_string())
-}
-#[cfg(any(
-    feature = "opentelemetry_0_21",
-    feature = "opentelemetry_0_22",
-    feature = "opentelemetry_0_23",
-))]
-pub(crate) fn kv_map_k(kv: (&opentelemetry::Key, &opentelemetry::Value)) -> String {
-    kv.0.to_string()
-}
+
 #[cfg(test)]
 mod tests {
     use super::*;

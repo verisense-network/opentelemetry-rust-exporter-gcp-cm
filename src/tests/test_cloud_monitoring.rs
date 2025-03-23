@@ -11,61 +11,33 @@ mod tests {
     use crate::gcloud_sdk::google::monitoring::v3::*;
     use crate::tests::test_cloud_monitoring::THE_RESOURCE;
     use crate::tests::test_utils::*;
-    crate::import_opentelemetry!();
+
     use opentelemetry::metrics::MeterProvider;
     use opentelemetry::KeyValue;
     use opentelemetry_sdk::metrics::InstrumentKind;
     use opentelemetry_sdk::{
         metrics::{Aggregation, Instrument, PeriodicReader, SdkMeterProvider, Stream},
-        runtime, Resource,
+        Resource,
     };
     use pretty_assertions_sorted_fork::{assert_eq, assert_eq_all_sorted, assert_eq_sorted};
     use prost::Message;
     use std::collections::HashMap;
 
-    #[cfg(any(
-        feature = "opentelemetry_0_25",
-        feature = "opentelemetry_0_26",
-        feature = "opentelemetry_0_27",
-    ))]
     fn my_unit() -> String {
         "myunit".to_string()
-    }
-    #[cfg(any(feature = "opentelemetry_0_24",))]
-    fn my_unit() -> String {
-        "myunit".to_string()
-    }
-    #[cfg(any(
-        feature = "opentelemetry_0_21",
-        feature = "opentelemetry_0_22",
-        feature = "opentelemetry_0_23",
-    ))]
-    fn my_unit() -> opentelemetry::metrics::Unit {
-        opentelemetry::metrics::Unit::new("myunit")
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn test_histogram_default_buckets() {
         let _m = THE_RESOURCE.lock().unwrap();
         let calls = get_gcm_calls().await;
-        let metrics_provider = init_metrics(Resource::new(vec![KeyValue::new(
-            "service.name",
-            "metric-demo",
-        )]));
+        let metrics_provider = init_metrics(vec![KeyValue::new("service.name", "metric-demo")]);
         let meter = metrics_provider.meter("test_cloud_monitoring");
         let histogram = meter
             .f64_histogram("myhistogram")
             .with_description("foo")
             .with_unit(my_unit());
-        #[cfg(any(
-            feature = "opentelemetry_0_21",
-            feature = "opentelemetry_0_22",
-            feature = "opentelemetry_0_23",
-            feature = "opentelemetry_0_25",
-            feature = "opentelemetry_0_26",
-        ))]
-        let histogram = histogram.init();
-        #[cfg(any(feature = "opentelemetry_0_27",))]
+
         let histogram = histogram.build();
         for i in 0..10_000 {
             histogram.record(
@@ -285,8 +257,7 @@ mod tests {
         let _m = THE_RESOURCE.lock().unwrap();
         let calls = get_gcm_calls().await;
         let exporter = crate::GCPMetricsExporter::fake_new();
-        let rt = runtime::Tokio;
-        let reader = PeriodicReader::builder(exporter, rt).build();
+        let reader = PeriodicReader::builder(exporter).build();
         let my_view_change_aggregation = |i: &Instrument| {
             if i.name == "my_single_bucket_histogram" {
                 if let Some(InstrumentKind::Histogram) = i.kind {
@@ -304,10 +275,11 @@ mod tests {
             None
         };
         let metrics_provider = SdkMeterProvider::builder()
-            .with_resource(Resource::new(vec![KeyValue::new(
-                "service.name",
-                "metric-demo",
-            )]))
+            .with_resource(
+                Resource::builder_empty()
+                    .with_attributes(vec![KeyValue::new("service.name", "metric-demo")])
+                    .build(),
+            )
             .with_reader(reader)
             .with_view(my_view_change_aggregation)
             .build();
@@ -318,15 +290,7 @@ mod tests {
             .f64_histogram("my_single_bucket_histogram")
             .with_description("foo")
             .with_unit(my_unit());
-        #[cfg(any(
-            feature = "opentelemetry_0_21",
-            feature = "opentelemetry_0_22",
-            feature = "opentelemetry_0_23",
-            feature = "opentelemetry_0_25",
-            feature = "opentelemetry_0_26",
-        ))]
-        let histogram = histogram.init();
-        #[cfg(any(feature = "opentelemetry_0_27",))]
+
         let histogram = histogram.build();
         for i in 0..10_000 {
             histogram.record(
@@ -518,24 +482,13 @@ mod tests {
     async fn test_up_down_counter_float() {
         let _m = THE_RESOURCE.lock().unwrap();
         let calls = get_gcm_calls().await;
-        let metrics_provider = init_metrics(Resource::new(vec![KeyValue::new(
-            "service.name",
-            "metric-demo",
-        )]));
+        let metrics_provider = init_metrics(vec![KeyValue::new("service.name", "metric-demo")]);
         let meter = metrics_provider.meter("test_cloud_monitoring");
         let updowncounter = meter
             .f64_up_down_counter("myupdowncounter")
             .with_description("foo")
             .with_unit(my_unit());
-        #[cfg(any(
-            feature = "opentelemetry_0_21",
-            feature = "opentelemetry_0_22",
-            feature = "opentelemetry_0_23",
-            feature = "opentelemetry_0_25",
-            feature = "opentelemetry_0_26",
-        ))]
-        let updowncounter = updowncounter.init();
-        #[cfg(any(feature = "opentelemetry_0_27",))]
+
         let updowncounter = updowncounter.build();
         updowncounter.add(
             45.6,
@@ -685,24 +638,13 @@ mod tests {
     async fn test_up_down_counter_int() {
         let _m = THE_RESOURCE.lock().unwrap();
         let calls = get_gcm_calls().await;
-        let metrics_provider = init_metrics(Resource::new(vec![KeyValue::new(
-            "service.name",
-            "metric-demo",
-        )]));
+        let metrics_provider = init_metrics(vec![KeyValue::new("service.name", "metric-demo")]);
         let meter = metrics_provider.meter("test_cloud_monitoring");
         let updowncounter = meter
             .i64_up_down_counter("myupdowncounter")
             .with_description("foo")
             .with_unit(my_unit());
-        #[cfg(any(
-            feature = "opentelemetry_0_21",
-            feature = "opentelemetry_0_22",
-            feature = "opentelemetry_0_23",
-            feature = "opentelemetry_0_25",
-            feature = "opentelemetry_0_26",
-        ))]
-        let updowncounter = updowncounter.init();
-        #[cfg(any(feature = "opentelemetry_0_27",))]
+
         let updowncounter = updowncounter.build();
         updowncounter.add(
             45,
@@ -851,10 +793,7 @@ mod tests {
     async fn test_observable_up_down_counter_int() {
         let _m = THE_RESOURCE.lock().unwrap();
         let calls = get_gcm_calls().await;
-        let metrics_provider = init_metrics(Resource::new(vec![KeyValue::new(
-            "service.name",
-            "metric-demo",
-        )]));
+        let metrics_provider = init_metrics(vec![KeyValue::new("service.name", "metric-demo")]);
         let meter = metrics_provider.meter("test_cloud_monitoring");
         let updowncounter = meter
             .i64_observable_up_down_counter("myobservablecounter")
@@ -870,15 +809,7 @@ mod tests {
             })
             .with_description("foo")
             .with_unit(my_unit());
-        #[cfg(any(
-            feature = "opentelemetry_0_21",
-            feature = "opentelemetry_0_22",
-            feature = "opentelemetry_0_23",
-            feature = "opentelemetry_0_25",
-            feature = "opentelemetry_0_26",
-        ))]
-        let _updowncounter = updowncounter.init();
-        #[cfg(any(feature = "opentelemetry_0_27",))]
+
         let _updowncounter = updowncounter.build();
         metrics_provider.force_flush().unwrap();
         let res = calls.read().await;
@@ -1019,10 +950,7 @@ mod tests {
     async fn test_observable_up_down_counter_float() {
         let _m = THE_RESOURCE.lock().unwrap();
         let calls = get_gcm_calls().await;
-        let metrics_provider = init_metrics(Resource::new(vec![KeyValue::new(
-            "service.name",
-            "metric-demo",
-        )]));
+        let metrics_provider = init_metrics(vec![KeyValue::new("service.name", "metric-demo")]);
         let meter = metrics_provider.meter("test_cloud_monitoring");
         let updowncounter = meter
             .f64_observable_up_down_counter("myobservablecounter")
@@ -1038,15 +966,7 @@ mod tests {
             })
             .with_description("foo")
             .with_unit(my_unit());
-        #[cfg(any(
-            feature = "opentelemetry_0_21",
-            feature = "opentelemetry_0_22",
-            feature = "opentelemetry_0_23",
-            feature = "opentelemetry_0_25",
-            feature = "opentelemetry_0_26",
-        ))]
-        let _updowncounter = updowncounter.init();
-        #[cfg(any(feature = "opentelemetry_0_27",))]
+
         let _updowncounter = updowncounter.build();
         metrics_provider.force_flush().unwrap();
         let res = calls.read().await;
@@ -1189,10 +1109,7 @@ mod tests {
     async fn test_observable_counter_int() {
         let _m = THE_RESOURCE.lock().unwrap();
         let calls = get_gcm_calls().await;
-        let metrics_provider = init_metrics(Resource::new(vec![KeyValue::new(
-            "service.name",
-            "metric-demo",
-        )]));
+        let metrics_provider = init_metrics(vec![KeyValue::new("service.name", "metric-demo")]);
         let meter = metrics_provider.meter("test_cloud_monitoring");
         let updowncounter = meter
             .u64_observable_counter("myobservablecounter")
@@ -1208,15 +1125,7 @@ mod tests {
             })
             .with_description("foo")
             .with_unit(my_unit());
-        #[cfg(any(
-            feature = "opentelemetry_0_21",
-            feature = "opentelemetry_0_22",
-            feature = "opentelemetry_0_23",
-            feature = "opentelemetry_0_25",
-            feature = "opentelemetry_0_26",
-        ))]
-        let _updowncounter = updowncounter.init();
-        #[cfg(any(feature = "opentelemetry_0_27",))]
+
         let _updowncounter = updowncounter.build();
         metrics_provider.force_flush().unwrap();
         let res = calls.read().await;
@@ -1359,10 +1268,7 @@ mod tests {
     async fn test_observable_counter_float() {
         let _m = THE_RESOURCE.lock().unwrap();
         let calls = get_gcm_calls().await;
-        let metrics_provider = init_metrics(Resource::new(vec![KeyValue::new(
-            "service.name",
-            "metric-demo",
-        )]));
+        let metrics_provider = init_metrics(vec![KeyValue::new("service.name", "metric-demo")]);
         let meter = metrics_provider.meter("test_cloud_monitoring");
         let updowncounter = meter
             .f64_observable_counter("myobservablecounter")
@@ -1378,15 +1284,7 @@ mod tests {
             })
             .with_description("foo")
             .with_unit(my_unit());
-        #[cfg(any(
-            feature = "opentelemetry_0_21",
-            feature = "opentelemetry_0_22",
-            feature = "opentelemetry_0_23",
-            feature = "opentelemetry_0_25",
-            feature = "opentelemetry_0_26",
-        ))]
-        let _updowncounter = updowncounter.init();
-        #[cfg(any(feature = "opentelemetry_0_27",))]
+
         let _updowncounter = updowncounter.build();
         metrics_provider.force_flush().unwrap();
         let res = calls.read().await;
@@ -1531,10 +1429,7 @@ mod tests {
     async fn test_observable_gauge_int() {
         let _m = THE_RESOURCE.lock().unwrap();
         let calls = get_gcm_calls().await;
-        let metrics_provider = init_metrics(Resource::new(vec![KeyValue::new(
-            "service.name",
-            "metric-demo",
-        )]));
+        let metrics_provider = init_metrics(vec![KeyValue::new("service.name", "metric-demo")]);
         let meter = metrics_provider.meter("test_cloud_monitoring");
         let updowncounter = meter
             .u64_observable_gauge("myobservablegauge")
@@ -1550,15 +1445,7 @@ mod tests {
             })
             .with_description("foo")
             .with_unit(my_unit());
-        #[cfg(any(
-            feature = "opentelemetry_0_21",
-            feature = "opentelemetry_0_22",
-            feature = "opentelemetry_0_23",
-            feature = "opentelemetry_0_25",
-            feature = "opentelemetry_0_26",
-        ))]
-        let _updowncounter = updowncounter.init();
-        #[cfg(any(feature = "opentelemetry_0_27",))]
+
         let _updowncounter = updowncounter.build();
         metrics_provider.force_flush().unwrap();
         let res = calls.read().await;
@@ -1699,10 +1586,7 @@ mod tests {
     async fn test_observable_gauge_float() {
         let _m = THE_RESOURCE.lock().unwrap();
         let calls = get_gcm_calls().await;
-        let metrics_provider = init_metrics(Resource::new(vec![KeyValue::new(
-            "service.name",
-            "metric-demo",
-        )]));
+        let metrics_provider = init_metrics(vec![KeyValue::new("service.name", "metric-demo")]);
         let meter = metrics_provider.meter("test_cloud_monitoring");
         let updowncounter = meter
             .f64_observable_gauge("myobservablegauge")
@@ -1718,15 +1602,7 @@ mod tests {
             })
             .with_description("foo")
             .with_unit(my_unit());
-        #[cfg(any(
-            feature = "opentelemetry_0_21",
-            feature = "opentelemetry_0_22",
-            feature = "opentelemetry_0_23",
-            feature = "opentelemetry_0_25",
-            feature = "opentelemetry_0_26",
-        ))]
-        let _updowncounter = updowncounter.init();
-        #[cfg(any(feature = "opentelemetry_0_27",))]
+
         let _updowncounter = updowncounter.build();
         metrics_provider.force_flush().unwrap();
         let res = calls.read().await;
@@ -1869,24 +1745,13 @@ mod tests {
     async fn test_counter_int() {
         let _m = THE_RESOURCE.lock().unwrap();
         let calls = get_gcm_calls().await;
-        let metrics_provider = init_metrics(Resource::new(vec![KeyValue::new(
-            "service.name",
-            "metric-demo",
-        )]));
+        let metrics_provider = init_metrics(vec![KeyValue::new("service.name", "metric-demo")]);
         let meter = metrics_provider.meter("test_cloud_monitoring");
         let mycounter = meter
             .u64_counter("mycounter")
             .with_description("foo")
             .with_unit(my_unit());
-        #[cfg(any(
-            feature = "opentelemetry_0_21",
-            feature = "opentelemetry_0_22",
-            feature = "opentelemetry_0_23",
-            feature = "opentelemetry_0_25",
-            feature = "opentelemetry_0_26",
-        ))]
-        let mycounter = mycounter.init();
-        #[cfg(any(feature = "opentelemetry_0_27",))]
+
         let mycounter = mycounter.build();
 
         mycounter.add(
@@ -2038,24 +1903,13 @@ mod tests {
     async fn test_counter_float() {
         let _m = THE_RESOURCE.lock().unwrap();
         let calls = get_gcm_calls().await;
-        let metrics_provider = init_metrics(Resource::new(vec![KeyValue::new(
-            "service.name",
-            "metric-demo",
-        )]));
+        let metrics_provider = init_metrics(vec![KeyValue::new("service.name", "metric-demo")]);
         let meter = metrics_provider.meter("test_cloud_monitoring");
         let mycounter = meter
             .f64_counter("mycounter")
             .with_description("foo")
             .with_unit(my_unit());
-        #[cfg(any(
-            feature = "opentelemetry_0_21",
-            feature = "opentelemetry_0_22",
-            feature = "opentelemetry_0_23",
-            feature = "opentelemetry_0_25",
-            feature = "opentelemetry_0_26",
-        ))]
-        let mycounter = mycounter.init();
-        #[cfg(any(feature = "opentelemetry_0_27",))]
+
         let mycounter = mycounter.build();
 
         mycounter.add(
@@ -2209,24 +2063,13 @@ mod tests {
     async fn test_invalid_label_keys() {
         let _m = THE_RESOURCE.lock().unwrap();
         let calls = get_gcm_calls().await;
-        let metrics_provider = init_metrics(Resource::new(vec![KeyValue::new(
-            "service.name",
-            "metric-demo",
-        )]));
+        let metrics_provider = init_metrics(vec![KeyValue::new("service.name", "metric-demo")]);
         let meter = metrics_provider.meter("test_cloud_monitoring");
         let mycounter = meter
             .u64_counter("mycounter")
             .with_description("foo")
             .with_unit(my_unit());
-        #[cfg(any(
-            feature = "opentelemetry_0_21",
-            feature = "opentelemetry_0_22",
-            feature = "opentelemetry_0_23",
-            feature = "opentelemetry_0_25",
-            feature = "opentelemetry_0_26",
-        ))]
-        let mycounter = mycounter.init();
-        #[cfg(any(feature = "opentelemetry_0_27",))]
+
         let mycounter = mycounter.build();
 
         mycounter.add(12, &[KeyValue::new("1some.invalid$\\key", "value")]);
@@ -2354,28 +2197,19 @@ mod tests {
     async fn test_with_resource() {
         let _m = THE_RESOURCE.lock().unwrap();
         let calls = get_gcm_calls().await;
-        let metrics_provider = init_metrics(Resource::new(vec![
+        let metrics_provider = init_metrics(vec![
             KeyValue::new("cloud.platform", "gcp_kubernetes_engine"),
             KeyValue::new("cloud.availability_zone", "myavailzone"),
             KeyValue::new("k8s.cluster.name", "mycluster"),
             KeyValue::new("k8s.namespace.name", "myns"),
             KeyValue::new("k8s.pod.name", "mypod"),
             KeyValue::new("k8s.container.name", "mycontainer"),
-        ]));
+        ]);
         let meter = metrics_provider.meter("test_cloud_monitoring");
         let mycounter = meter
             .u64_counter("mycounter")
             .with_description("foo")
             .with_unit(my_unit());
-        #[cfg(any(
-            feature = "opentelemetry_0_21",
-            feature = "opentelemetry_0_22",
-            feature = "opentelemetry_0_23",
-            feature = "opentelemetry_0_25",
-            feature = "opentelemetry_0_26",
-        ))]
-        let mycounter = mycounter.init();
-        #[cfg(any(feature = "opentelemetry_0_27",))]
         let mycounter = mycounter.build();
 
         mycounter.add(
@@ -2550,24 +2384,13 @@ mod tests {
 
         let _m = THE_RESOURCE.lock().unwrap();
         let calls = get_gcm_calls().await;
-        let metrics_provider = init_metrics(Resource::new(vec![KeyValue::new(
-            "service.name",
-            "metric-demo",
-        )]));
+        let metrics_provider = init_metrics(vec![KeyValue::new("service.name", "metric-demo")]);
         let meter = metrics_provider.meter("test_cloud_monitoring");
         let mycounter = meter
             .u64_counter("mycounter")
             .with_description("foo")
             .with_unit(my_unit());
-        #[cfg(any(
-            feature = "opentelemetry_0_21",
-            feature = "opentelemetry_0_22",
-            feature = "opentelemetry_0_23",
-            feature = "opentelemetry_0_25",
-            feature = "opentelemetry_0_26",
-        ))]
-        let mycounter = mycounter.init();
-        #[cfg(any(feature = "opentelemetry_0_27",))]
+
         let mycounter = mycounter.build();
 
         mycounter.add(

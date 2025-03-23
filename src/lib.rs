@@ -11,6 +11,5 @@ pub use exporter::GCPMetricsExporter;
 pub use exporter::GCPMetricsExporterConfig;
 pub use exporter::MonitoredResourceDataConfig;
 mod gcloud_sdk;
-mod opentelemetry;
 #[cfg(test)]
 mod tests;

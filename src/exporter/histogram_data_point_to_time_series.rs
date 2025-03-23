@@ -1,4 +1,3 @@
-crate::import_opentelemetry!();
 use super::{utils::kv_map_normalize_k_v, UNIQUE_IDENTIFIER_KEY};
 use crate::exporter::to_f64::ToF64;
 use crate::gcloud_sdk;
@@ -8,18 +7,18 @@ use std::time::SystemTime;
 
 pub fn convert<T: ToF64 + Copy>(
     data_point: &data::HistogramDataPoint<T>,
+    start_time: &SystemTime,
+    time: &SystemTime,
     descriptor: &MetricDescriptor,
     monitored_resource_data: &Option<gcloud_sdk::google::api::MonitoredResource>,
     add_unique_identifier: bool,
-    unique_identifier: String,
+    unique_identifier: &str,
 ) -> TimeSeries {
-    let data_point_start_time = data_point
-        .start_time
+    let data_point_start_time = start_time
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let data_point_time = data_point
-        .time
+    let data_point_time = time
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap()
         .as_nanos();
@@ -63,7 +62,10 @@ pub fn convert<T: ToF64 + Copy>(
         .map(kv_map_normalize_k_v)
         .collect::<std::collections::HashMap<String, String>>();
     if add_unique_identifier {
-        labels.insert(UNIQUE_IDENTIFIER_KEY.to_string(), unique_identifier.clone());
+        labels.insert(
+            UNIQUE_IDENTIFIER_KEY.to_string(),
+            unique_identifier.to_string(),
+        );
     }
 
     let time_series = TimeSeries {

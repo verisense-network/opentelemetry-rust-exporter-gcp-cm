@@ -2,13 +2,10 @@ mod data_point_to_time_series;
 mod histogram_data_point_to_time_series;
 mod to_f64;
 mod utils;
-crate::import_opentelemetry!();
 use crate::{
     gcloud_sdk,
     gcp_authorizer::{Authorizer, FakeAuthorizer, GoogleEnvironment},
 };
-#[cfg(feature = "async-std")]
-use async_std::{sync::RwLock, task::sleep};
 use async_trait::async_trait;
 use gcloud_sdk::google::{
     api::{metric_descriptor, metric_descriptor::MetricKind, LabelDescriptor, MetricDescriptor},
@@ -17,44 +14,19 @@ use gcloud_sdk::google::{
     },
 };
 use itertools::Itertools;
-#[cfg(any(
-    feature = "opentelemetry_0_21",
-    feature = "opentelemetry_0_22",
-    feature = "opentelemetry_0_23",
-    feature = "opentelemetry_0_24",
-    feature = "opentelemetry_0_25",
-    feature = "opentelemetry_0_26",
-))]
-use opentelemetry::metrics::{MetricsError, Result as MetricsResult};
 use opentelemetry_resourcedetector_gcp_rust::mapping::get_monitored_resource;
-#[cfg(any(
-    feature = "opentelemetry_0_21",
-    feature = "opentelemetry_0_22",
-    feature = "opentelemetry_0_23",
-    feature = "opentelemetry_0_24",
-    feature = "opentelemetry_0_25",
-))]
-use opentelemetry_sdk::metrics::reader::{AggregationSelector, DefaultAggregationSelector};
-#[cfg(any(
-    feature = "opentelemetry_0_21",
-    feature = "opentelemetry_0_22",
-    feature = "opentelemetry_0_23",
-    feature = "opentelemetry_0_24",
-    feature = "opentelemetry_0_25",
-    feature = "opentelemetry_0_26",
-))]
-use opentelemetry_sdk::metrics::{
-    data::Temporality, exporter::PushMetricsExporter, reader::TemporalitySelector, InstrumentKind,
-};
 
-use opentelemetry_sdk::metrics::data::{
-    ExponentialHistogram as SdkExponentialHistogram, Gauge as SdkGauge, Histogram as SdkHistogram,
-    Metric as OpentelemetrySdkMetric, ResourceMetrics, Sum as SdkSum,
-};
-#[cfg(any(feature = "opentelemetry_0_27",))]
-use opentelemetry_sdk::metrics::{
-    exporter::PushMetricExporter as PushMetricsExporter, MetricError as MetricsError,
-    MetricResult as MetricsResult, Temporality,
+use opentelemetry_sdk::{
+    error::OTelSdkError,
+    metrics::{
+        data::{
+            ExponentialHistogram as SdkExponentialHistogram, Gauge as SdkGauge,
+            Histogram as SdkHistogram, Metric as OpentelemetrySdkMetric, ResourceMetrics,
+            Sum as SdkSum,
+        },
+        exporter::PushMetricExporter as PushMetricsExporter,
+        MetricError as MetricsError, Temporality,
+    },
 };
 
 use rand::Rng;
@@ -174,45 +146,6 @@ impl GCPMetricsExporter {
     }
 }
 
-#[cfg(any(
-    feature = "opentelemetry_0_21",
-    feature = "opentelemetry_0_22",
-    feature = "opentelemetry_0_23",
-    feature = "opentelemetry_0_24",
-    feature = "opentelemetry_0_25",
-    feature = "opentelemetry_0_26",
-))]
-impl TemporalitySelector for GCPMetricsExporter {
-    // This is matching OTLP exporters delta.
-    fn temporality(&self, kind: InstrumentKind) -> Temporality {
-        match kind {
-            InstrumentKind::Counter
-            | InstrumentKind::ObservableCounter
-            | InstrumentKind::ObservableGauge
-            | InstrumentKind::Histogram
-            | InstrumentKind::Gauge => Temporality::Delta,
-            InstrumentKind::UpDownCounter | InstrumentKind::ObservableUpDownCounter => {
-                Temporality::Cumulative
-            }
-        }
-    }
-}
-
-#[cfg(any(
-    feature = "opentelemetry_0_21",
-    feature = "opentelemetry_0_22",
-    feature = "opentelemetry_0_23",
-    feature = "opentelemetry_0_24",
-    feature = "opentelemetry_0_25",
-))]
-impl AggregationSelector for GCPMetricsExporter {
-    // TODO: this should ideally be done at SDK level by default
-    // without exporters having to do it.
-    fn aggregation(&self, kind: InstrumentKind) -> opentelemetry_sdk::metrics::Aggregation {
-        DefaultAggregationSelector::new().aggregation(kind)
-    }
-}
-
 impl Debug for GCPMetricsExporter {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str("Google monitoring metrics exporter")
@@ -239,19 +172,7 @@ impl GCPMetricsExporter {
         if let Some(cached_metric_descriptor) = cached_metric_descriptor {
             return Some(cached_metric_descriptor);
         }
-        #[cfg(any(
-            // feature = "opentelemetry_0_21",
-            // feature = "opentelemetry_0_22",
-            feature = "opentelemetry_0_23",
-        ))]
-        let unit = metric.unit.as_str().to_string();
-        #[cfg(any(feature = "opentelemetry_0_24",))]
-        let unit = metric.unit.to_string();
-        #[cfg(any(
-            feature = "opentelemetry_0_25",
-            feature = "opentelemetry_0_26",
-            feature = "opentelemetry_0_27",
-        ))]
+
         let unit = metric.unit.to_string();
         let mut descriptor = MetricDescriptor {
             r#type: descriptor_type.clone(),
@@ -418,7 +339,7 @@ impl GCPMetricsExporter {
         Some(descriptor)
     }
 
-    async fn exec_export(&self, metrics: &mut ResourceMetrics) -> MetricsResult<()> {
+    async fn exec_export(&self, metrics: &mut ResourceMetrics) -> Result<(), OTelSdkError> {
         // // println!("export: {:#?}", metrics);
         // let proto_message: ExportMetricsServiceRequest = (&*metrics).into();
         // // println!("export: {}", serde_json::to_string_pretty(&proto_message).unwrap());
@@ -455,30 +376,36 @@ impl GCPMetricsExporter {
                     for data_point in &v.data_points {
                         all_series.push(histogram_data_point_to_time_series::convert(
                             data_point,
+                            &v.start_time,
+                            &v.time,
                             &descriptor,
                             &monitored_resource_data,
                             self.add_unique_identifier,
-                            self.unique_identifier.clone(),
+                            &self.unique_identifier,
                         ));
                     }
                 } else if let Some(v) = data.downcast_ref::<SdkHistogram<u64>>() {
                     for data_point in &v.data_points {
                         all_series.push(histogram_data_point_to_time_series::convert(
                             data_point,
+                            &v.start_time,
+                            &v.time,
                             &descriptor,
                             &monitored_resource_data,
                             self.add_unique_identifier,
-                            self.unique_identifier.clone(),
+                            &self.unique_identifier,
                         ));
                     }
                 } else if let Some(v) = data.downcast_ref::<SdkHistogram<f64>>() {
                     for data_point in &v.data_points {
                         all_series.push(histogram_data_point_to_time_series::convert(
                             data_point,
+                            &v.start_time,
+                            &v.time,
                             &descriptor,
                             &monitored_resource_data,
                             self.add_unique_identifier,
-                            self.unique_identifier.clone(),
+                            &self.unique_identifier,
                         ));
                     }
                 // } else if let Some(v) = data.downcast_ref::<SdkExponentialHistogram<i64>>() {
@@ -577,7 +504,7 @@ impl GCPMetricsExporter {
             loop {
                 iteration += 1;
                 if iteration > 101 {
-                    return Err(MetricsError::Other(
+                    return Err(OTelSdkError::InternalFailure(
                         "GCPMetricsExporter: Cant send time series".into(),
                     ));
                 }
@@ -596,7 +523,7 @@ impl GCPMetricsExporter {
                         );
                     }
                     Err(err) => {
-                        return Err(MetricsError::Other(format!(
+                        return Err(OTelSdkError::InternalFailure(format!(
                             "GCPMetricsExporter: cant authorize: {:?}",
                             err
                         )));
@@ -605,7 +532,7 @@ impl GCPMetricsExporter {
                 let channel = match self.make_chanel().await {
                     Ok(channel) => channel,
                     Err(err) => {
-                        return Err(MetricsError::Other(format!("GCPMetricsExporter: Cant init google services grpc transport channel [Make issue with this case in github repo]: {:?}", err)));
+                        return Err(OTelSdkError::InternalFailure(format!("GCPMetricsExporter: Cant init google services grpc transport channel [Make issue with this case in github repo]: {:?}", err)));
                     }
                 };
                 let mut msc = MetricServiceClient::new(channel);
@@ -643,7 +570,7 @@ impl GCPMetricsExporter {
 
 #[async_trait]
 impl PushMetricsExporter for GCPMetricsExporter {
-    async fn export(&self, metrics: &mut ResourceMetrics) -> MetricsResult<()> {
+    async fn export(&self, metrics: &mut ResourceMetrics) -> Result<(), OTelSdkError> {
         let sys_time = SystemTime::now();
         let resp = self.exec_export(metrics).await;
         let new_sys_time = SystemTime::now();
@@ -655,17 +582,16 @@ impl PushMetricsExporter for GCPMetricsExporter {
         resp
     }
 
-    async fn force_flush(&self) -> MetricsResult<()> {
+    async fn force_flush(&self) -> Result<(), OTelSdkError> {
         Ok(()) // In this implementation, flush does nothing
     }
 
-    fn shutdown(&self) -> MetricsResult<()> {
+    fn shutdown(&self) -> Result<(), OTelSdkError> {
         // TracepointState automatically unregisters when dropped
         // https://github.com/microsoft/LinuxTracepoints-Rust/blob/main/eventheader/src/native.rs#L618
         Ok(())
     }
 
-    #[cfg(any(feature = "opentelemetry_0_27",))]
     fn temporality(&self) -> Temporality {
         Temporality::default()
     }
