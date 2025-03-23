@@ -6,7 +6,7 @@ use crate::{
     gcloud_sdk,
     gcp_authorizer::{Authorizer, FakeAuthorizer, GoogleEnvironment},
 };
-use async_trait::async_trait;
+
 use gcloud_sdk::google::{
     api::{metric_descriptor, metric_descriptor::MetricKind, LabelDescriptor, MetricDescriptor},
     monitoring::v3::{
@@ -580,21 +580,26 @@ impl GCPMetricsExporter {
     }
 }
 
-#[async_trait]
+// #[async_trait]
 impl PushMetricsExporter for GCPMetricsExporter {
-    async fn export(&self, metrics: &mut ResourceMetrics) -> Result<(), OTelSdkError> {
-        let sys_time = SystemTime::now();
-        let resp = self.exec_export(metrics).await;
-        let new_sys_time = SystemTime::now();
-        let _difference = new_sys_time
-            .duration_since(sys_time)
-            .expect("Clock may have gone backwards")
-            .as_millis();
-        // info!("export time: {}", difference);
-        resp
+    fn export(
+        &self,
+        metrics: &mut ResourceMetrics,
+    ) -> impl std::future::Future<Output = Result<(), OTelSdkError>> + Send {
+        async {
+            let sys_time = SystemTime::now();
+            let resp = self.exec_export(metrics).await;
+            let new_sys_time = SystemTime::now();
+            let _difference = new_sys_time
+                .duration_since(sys_time)
+                .expect("Clock may have gone backwards")
+                .as_millis();
+            // info!("export time: {}", difference);
+            resp
+        }
     }
 
-    async fn force_flush(&self) -> Result<(), OTelSdkError> {
+    fn force_flush(&self) -> Result<(), OTelSdkError> {
         Ok(()) // In this implementation, flush does nothing
     }
 
