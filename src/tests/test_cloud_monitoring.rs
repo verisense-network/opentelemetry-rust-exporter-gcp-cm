@@ -23,7 +23,11 @@ mod tests {
     use prost::Message;
     use std::collections::HashMap;
 
-    #[cfg(any(feature = "opentelemetry_0_25",))]
+    #[cfg(any(
+        feature = "opentelemetry_0_25",
+        feature = "opentelemetry_0_26",
+        feature = "opentelemetry_0_27",
+    ))]
     fn my_unit() -> String {
         "myunit".to_string()
     }
@@ -52,8 +56,17 @@ mod tests {
         let histogram = meter
             .f64_histogram("myhistogram")
             .with_description("foo")
-            .with_unit(my_unit())
-            .init();
+            .with_unit(my_unit());
+        #[cfg(any(
+            feature = "opentelemetry_0_21",
+            feature = "opentelemetry_0_22",
+            feature = "opentelemetry_0_23",
+            feature = "opentelemetry_0_25",
+            feature = "opentelemetry_0_26",
+        ))]
+        let histogram = histogram.init();
+        #[cfg(any(feature = "opentelemetry_0_27",))]
+        let histogram = histogram.build();
         for i in 0..10_000 {
             histogram.record(
                 i as f64,
@@ -304,8 +317,17 @@ mod tests {
         let histogram = meter
             .f64_histogram("my_single_bucket_histogram")
             .with_description("foo")
-            .with_unit(my_unit())
-            .init();
+            .with_unit(my_unit());
+        #[cfg(any(
+            feature = "opentelemetry_0_21",
+            feature = "opentelemetry_0_22",
+            feature = "opentelemetry_0_23",
+            feature = "opentelemetry_0_25",
+            feature = "opentelemetry_0_26",
+        ))]
+        let histogram = histogram.init();
+        #[cfg(any(feature = "opentelemetry_0_27",))]
+        let histogram = histogram.build();
         for i in 0..10_000 {
             histogram.record(
                 i as f64,
@@ -504,8 +526,17 @@ mod tests {
         let updowncounter = meter
             .f64_up_down_counter("myupdowncounter")
             .with_description("foo")
-            .with_unit(my_unit())
-            .init();
+            .with_unit(my_unit());
+        #[cfg(any(
+            feature = "opentelemetry_0_21",
+            feature = "opentelemetry_0_22",
+            feature = "opentelemetry_0_23",
+            feature = "opentelemetry_0_25",
+            feature = "opentelemetry_0_26",
+        ))]
+        let updowncounter = updowncounter.init();
+        #[cfg(any(feature = "opentelemetry_0_27",))]
+        let updowncounter = updowncounter.build();
         updowncounter.add(
             45.6,
             &[
@@ -662,8 +693,17 @@ mod tests {
         let updowncounter = meter
             .i64_up_down_counter("myupdowncounter")
             .with_description("foo")
-            .with_unit(my_unit())
-            .init();
+            .with_unit(my_unit());
+        #[cfg(any(
+            feature = "opentelemetry_0_21",
+            feature = "opentelemetry_0_22",
+            feature = "opentelemetry_0_23",
+            feature = "opentelemetry_0_25",
+            feature = "opentelemetry_0_26",
+        ))]
+        let updowncounter = updowncounter.init();
+        #[cfg(any(feature = "opentelemetry_0_27",))]
+        let updowncounter = updowncounter.build();
         updowncounter.add(
             45,
             &[
@@ -816,7 +856,7 @@ mod tests {
             "metric-demo",
         )]));
         let meter = metrics_provider.meter("test_cloud_monitoring");
-        let _updowncounter = meter
+        let updowncounter = meter
             .i64_observable_up_down_counter("myobservablecounter")
             .with_callback(|result| {
                 result.observe(
@@ -829,8 +869,17 @@ mod tests {
                 );
             })
             .with_description("foo")
-            .with_unit(my_unit())
-            .init();
+            .with_unit(my_unit());
+        #[cfg(any(
+            feature = "opentelemetry_0_21",
+            feature = "opentelemetry_0_22",
+            feature = "opentelemetry_0_23",
+            feature = "opentelemetry_0_25",
+            feature = "opentelemetry_0_26",
+        ))]
+        let _updowncounter = updowncounter.init();
+        #[cfg(any(feature = "opentelemetry_0_27",))]
+        let _updowncounter = updowncounter.build();
         metrics_provider.force_flush().unwrap();
         let res = calls.read().await;
         let create_metric_descriptor = res
@@ -975,7 +1024,7 @@ mod tests {
             "metric-demo",
         )]));
         let meter = metrics_provider.meter("test_cloud_monitoring");
-        let _updowncounter = meter
+        let updowncounter = meter
             .f64_observable_up_down_counter("myobservablecounter")
             .with_callback(|result| {
                 result.observe(
@@ -988,8 +1037,17 @@ mod tests {
                 );
             })
             .with_description("foo")
-            .with_unit(my_unit())
-            .init();
+            .with_unit(my_unit());
+        #[cfg(any(
+            feature = "opentelemetry_0_21",
+            feature = "opentelemetry_0_22",
+            feature = "opentelemetry_0_23",
+            feature = "opentelemetry_0_25",
+            feature = "opentelemetry_0_26",
+        ))]
+        let _updowncounter = updowncounter.init();
+        #[cfg(any(feature = "opentelemetry_0_27",))]
+        let _updowncounter = updowncounter.build();
         metrics_provider.force_flush().unwrap();
         let res = calls.read().await;
         let create_metric_descriptor = res
@@ -1136,7 +1194,7 @@ mod tests {
             "metric-demo",
         )]));
         let meter = metrics_provider.meter("test_cloud_monitoring");
-        let _updowncounter = meter
+        let updowncounter = meter
             .u64_observable_counter("myobservablecounter")
             .with_callback(|result| {
                 result.observe(
@@ -1149,8 +1207,17 @@ mod tests {
                 );
             })
             .with_description("foo")
-            .with_unit(my_unit())
-            .init();
+            .with_unit(my_unit());
+        #[cfg(any(
+            feature = "opentelemetry_0_21",
+            feature = "opentelemetry_0_22",
+            feature = "opentelemetry_0_23",
+            feature = "opentelemetry_0_25",
+            feature = "opentelemetry_0_26",
+        ))]
+        let _updowncounter = updowncounter.init();
+        #[cfg(any(feature = "opentelemetry_0_27",))]
+        let _updowncounter = updowncounter.build();
         metrics_provider.force_flush().unwrap();
         let res = calls.read().await;
         let create_metric_descriptor = res
@@ -1297,7 +1364,7 @@ mod tests {
             "metric-demo",
         )]));
         let meter = metrics_provider.meter("test_cloud_monitoring");
-        let _updowncounter = meter
+        let updowncounter = meter
             .f64_observable_counter("myobservablecounter")
             .with_callback(|result| {
                 result.observe(
@@ -1310,8 +1377,17 @@ mod tests {
                 );
             })
             .with_description("foo")
-            .with_unit(my_unit())
-            .init();
+            .with_unit(my_unit());
+        #[cfg(any(
+            feature = "opentelemetry_0_21",
+            feature = "opentelemetry_0_22",
+            feature = "opentelemetry_0_23",
+            feature = "opentelemetry_0_25",
+            feature = "opentelemetry_0_26",
+        ))]
+        let _updowncounter = updowncounter.init();
+        #[cfg(any(feature = "opentelemetry_0_27",))]
+        let _updowncounter = updowncounter.build();
         metrics_provider.force_flush().unwrap();
         let res = calls.read().await;
         let create_metric_descriptor = res
@@ -1460,7 +1536,7 @@ mod tests {
             "metric-demo",
         )]));
         let meter = metrics_provider.meter("test_cloud_monitoring");
-        let _updowncounter = meter
+        let updowncounter = meter
             .u64_observable_gauge("myobservablegauge")
             .with_callback(|result| {
                 result.observe(
@@ -1473,8 +1549,17 @@ mod tests {
                 );
             })
             .with_description("foo")
-            .with_unit(my_unit())
-            .init();
+            .with_unit(my_unit());
+        #[cfg(any(
+            feature = "opentelemetry_0_21",
+            feature = "opentelemetry_0_22",
+            feature = "opentelemetry_0_23",
+            feature = "opentelemetry_0_25",
+            feature = "opentelemetry_0_26",
+        ))]
+        let _updowncounter = updowncounter.init();
+        #[cfg(any(feature = "opentelemetry_0_27",))]
+        let _updowncounter = updowncounter.build();
         metrics_provider.force_flush().unwrap();
         let res = calls.read().await;
         let create_metric_descriptor = res
@@ -1619,7 +1704,7 @@ mod tests {
             "metric-demo",
         )]));
         let meter = metrics_provider.meter("test_cloud_monitoring");
-        let _updowncounter = meter
+        let updowncounter = meter
             .f64_observable_gauge("myobservablegauge")
             .with_callback(|result| {
                 result.observe(
@@ -1632,8 +1717,17 @@ mod tests {
                 );
             })
             .with_description("foo")
-            .with_unit(my_unit())
-            .init();
+            .with_unit(my_unit());
+        #[cfg(any(
+            feature = "opentelemetry_0_21",
+            feature = "opentelemetry_0_22",
+            feature = "opentelemetry_0_23",
+            feature = "opentelemetry_0_25",
+            feature = "opentelemetry_0_26",
+        ))]
+        let _updowncounter = updowncounter.init();
+        #[cfg(any(feature = "opentelemetry_0_27",))]
+        let _updowncounter = updowncounter.build();
         metrics_provider.force_flush().unwrap();
         let res = calls.read().await;
         let create_metric_descriptor = res
@@ -1783,8 +1877,17 @@ mod tests {
         let mycounter = meter
             .u64_counter("mycounter")
             .with_description("foo")
-            .with_unit(my_unit())
-            .init();
+            .with_unit(my_unit());
+        #[cfg(any(
+            feature = "opentelemetry_0_21",
+            feature = "opentelemetry_0_22",
+            feature = "opentelemetry_0_23",
+            feature = "opentelemetry_0_25",
+            feature = "opentelemetry_0_26",
+        ))]
+        let mycounter = mycounter.init();
+        #[cfg(any(feature = "opentelemetry_0_27",))]
+        let mycounter = mycounter.build();
 
         mycounter.add(
             45,
@@ -1943,8 +2046,17 @@ mod tests {
         let mycounter = meter
             .f64_counter("mycounter")
             .with_description("foo")
-            .with_unit(my_unit())
-            .init();
+            .with_unit(my_unit());
+        #[cfg(any(
+            feature = "opentelemetry_0_21",
+            feature = "opentelemetry_0_22",
+            feature = "opentelemetry_0_23",
+            feature = "opentelemetry_0_25",
+            feature = "opentelemetry_0_26",
+        ))]
+        let mycounter = mycounter.init();
+        #[cfg(any(feature = "opentelemetry_0_27",))]
+        let mycounter = mycounter.build();
 
         mycounter.add(
             45.0,
@@ -2105,8 +2217,17 @@ mod tests {
         let mycounter = meter
             .u64_counter("mycounter")
             .with_description("foo")
-            .with_unit(my_unit())
-            .init();
+            .with_unit(my_unit());
+        #[cfg(any(
+            feature = "opentelemetry_0_21",
+            feature = "opentelemetry_0_22",
+            feature = "opentelemetry_0_23",
+            feature = "opentelemetry_0_25",
+            feature = "opentelemetry_0_26",
+        ))]
+        let mycounter = mycounter.init();
+        #[cfg(any(feature = "opentelemetry_0_27",))]
+        let mycounter = mycounter.build();
 
         mycounter.add(12, &[KeyValue::new("1some.invalid$\\key", "value")]);
         metrics_provider.force_flush().unwrap();
@@ -2245,8 +2366,17 @@ mod tests {
         let mycounter = meter
             .u64_counter("mycounter")
             .with_description("foo")
-            .with_unit(my_unit())
-            .init();
+            .with_unit(my_unit());
+        #[cfg(any(
+            feature = "opentelemetry_0_21",
+            feature = "opentelemetry_0_22",
+            feature = "opentelemetry_0_23",
+            feature = "opentelemetry_0_25",
+            feature = "opentelemetry_0_26",
+        ))]
+        let mycounter = mycounter.init();
+        #[cfg(any(feature = "opentelemetry_0_27",))]
+        let mycounter = mycounter.build();
 
         mycounter.add(
             12,
@@ -2428,8 +2558,17 @@ mod tests {
         let mycounter = meter
             .u64_counter("mycounter")
             .with_description("foo")
-            .with_unit(my_unit())
-            .init();
+            .with_unit(my_unit());
+        #[cfg(any(
+            feature = "opentelemetry_0_21",
+            feature = "opentelemetry_0_22",
+            feature = "opentelemetry_0_23",
+            feature = "opentelemetry_0_25",
+            feature = "opentelemetry_0_26",
+        ))]
+        let mycounter = mycounter.init();
+        #[cfg(any(feature = "opentelemetry_0_27",))]
+        let mycounter = mycounter.build();
 
         mycounter.add(
             45,

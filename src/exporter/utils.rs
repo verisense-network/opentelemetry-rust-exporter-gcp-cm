@@ -5,9 +5,21 @@ crate::import_opentelemetry!();
     // feature = "opentelemetry_0_23",
     feature = "opentelemetry_0_24",
     feature = "opentelemetry_0_25",
+    feature = "opentelemetry_0_26",
+    feature = "opentelemetry_0_27",
 ))]
 use opentelemetry::KeyValue;
+#[cfg(any(
+    feature = "opentelemetry_0_21",
+    feature = "opentelemetry_0_22",
+    feature = "opentelemetry_0_23",
+    feature = "opentelemetry_0_24",
+    feature = "opentelemetry_0_25",
+    feature = "opentelemetry_0_26",
+))]
 use opentelemetry::{global, metrics::MetricsError};
+#[cfg(any(feature = "opentelemetry_0_27",))]
+use opentelemetry_sdk::metrics::MetricError as MetricsError;
 
 use opentelemetry_sdk::metrics::data::{
     ExponentialHistogram as SdkExponentialHistogram, Gauge as SdkGauge, Histogram as SdkHistogram,
@@ -15,6 +27,20 @@ use opentelemetry_sdk::metrics::data::{
 };
 use std::any::Any;
 use std::collections::HashSet;
+
+pub(crate) fn log_warning(err: MetricsError) {
+    #[cfg(any(
+        feature = "opentelemetry_0_21",
+        feature = "opentelemetry_0_22",
+        feature = "opentelemetry_0_23",
+        feature = "opentelemetry_0_24",
+        feature = "opentelemetry_0_25",
+        feature = "opentelemetry_0_26",
+    ))]
+    global::handle_error(err);
+    #[cfg(any(feature = "opentelemetry_0_27",))]
+    tracing::warn!("{}", err);
+}
 
 pub(crate) fn get_data_points_attributes_keys(data: &dyn Any) -> HashSet<String> {
     let attributes_keys = if let Some(v) = data.downcast_ref::<SdkHistogram<i64>>() {
@@ -90,7 +116,7 @@ pub(crate) fn get_data_points_attributes_keys(data: &dyn Any) -> HashSet<String>
             .flatten()
             .collect()
     } else {
-        global::handle_error(MetricsError::Other(
+        log_warning(MetricsError::Other(
             "Unsupported metric data type, ignoring it".into(),
         ));
         vec![]
@@ -136,6 +162,8 @@ fn sanitize_string(s: &str) -> String {
     // feature = "opentelemetry_0_23",
     feature = "opentelemetry_0_24",
     feature = "opentelemetry_0_25",
+    feature = "opentelemetry_0_26",
+    feature = "opentelemetry_0_27",
 ))]
 pub(crate) fn kv_map_normalize_k_v(kv: &KeyValue) -> (String, String) {
     (
@@ -150,6 +178,8 @@ pub(crate) fn kv_map_normalize_k_v(kv: &KeyValue) -> (String, String) {
     // feature = "opentelemetry_0_23",
     feature = "opentelemetry_0_24",
     feature = "opentelemetry_0_25",
+    feature = "opentelemetry_0_26",
+    feature = "opentelemetry_0_27",
 ))]
 pub(crate) fn kv_map_k(kv: &KeyValue) -> String {
     kv.key.to_string()

@@ -17,21 +17,46 @@ use gcloud_sdk::google::{
     },
 };
 use itertools::Itertools;
-use opentelemetry::{
-    global,
-    metrics::{MetricsError, Result as MetricsResult},
-};
+#[cfg(any(
+    feature = "opentelemetry_0_21",
+    feature = "opentelemetry_0_22",
+    feature = "opentelemetry_0_23",
+    feature = "opentelemetry_0_24",
+    feature = "opentelemetry_0_25",
+    feature = "opentelemetry_0_26",
+))]
+use opentelemetry::metrics::{MetricsError, Result as MetricsResult};
 use opentelemetry_resourcedetector_gcp_rust::mapping::get_monitored_resource;
+#[cfg(any(
+    feature = "opentelemetry_0_21",
+    feature = "opentelemetry_0_22",
+    feature = "opentelemetry_0_23",
+    feature = "opentelemetry_0_24",
+    feature = "opentelemetry_0_25",
+))]
+use opentelemetry_sdk::metrics::reader::{AggregationSelector, DefaultAggregationSelector};
+#[cfg(any(
+    feature = "opentelemetry_0_21",
+    feature = "opentelemetry_0_22",
+    feature = "opentelemetry_0_23",
+    feature = "opentelemetry_0_24",
+    feature = "opentelemetry_0_25",
+    feature = "opentelemetry_0_26",
+))]
 use opentelemetry_sdk::metrics::{
-    data::{
-        ExponentialHistogram as SdkExponentialHistogram, Gauge as SdkGauge,
-        Histogram as SdkHistogram, Metric as OpentelemetrySdkMetric, ResourceMetrics,
-        Sum as SdkSum, Temporality,
-    },
-    exporter::PushMetricsExporter,
-    reader::{AggregationSelector, DefaultAggregationSelector, TemporalitySelector},
-    InstrumentKind,
+    data::Temporality, exporter::PushMetricsExporter, reader::TemporalitySelector, InstrumentKind,
 };
+
+use opentelemetry_sdk::metrics::data::{
+    ExponentialHistogram as SdkExponentialHistogram, Gauge as SdkGauge, Histogram as SdkHistogram,
+    Metric as OpentelemetrySdkMetric, ResourceMetrics, Sum as SdkSum,
+};
+#[cfg(any(feature = "opentelemetry_0_27",))]
+use opentelemetry_sdk::metrics::{
+    exporter::PushMetricExporter as PushMetricsExporter, MetricError as MetricsError,
+    MetricResult as MetricsResult, Temporality,
+};
+
 use rand::Rng;
 use std::{
     collections::{HashMap, HashSet},
@@ -149,6 +174,14 @@ impl GCPMetricsExporter {
     }
 }
 
+#[cfg(any(
+    feature = "opentelemetry_0_21",
+    feature = "opentelemetry_0_22",
+    feature = "opentelemetry_0_23",
+    feature = "opentelemetry_0_24",
+    feature = "opentelemetry_0_25",
+    feature = "opentelemetry_0_26",
+))]
 impl TemporalitySelector for GCPMetricsExporter {
     // This is matching OTLP exporters delta.
     fn temporality(&self, kind: InstrumentKind) -> Temporality {
@@ -165,6 +198,13 @@ impl TemporalitySelector for GCPMetricsExporter {
     }
 }
 
+#[cfg(any(
+    feature = "opentelemetry_0_21",
+    feature = "opentelemetry_0_22",
+    feature = "opentelemetry_0_23",
+    feature = "opentelemetry_0_24",
+    feature = "opentelemetry_0_25",
+))]
 impl AggregationSelector for GCPMetricsExporter {
     // TODO: this should ideally be done at SDK level by default
     // without exporters having to do it.
@@ -207,7 +247,11 @@ impl GCPMetricsExporter {
         let unit = metric.unit.as_str().to_string();
         #[cfg(any(feature = "opentelemetry_0_24",))]
         let unit = metric.unit.to_string();
-        #[cfg(any(feature = "opentelemetry_0_25",))]
+        #[cfg(any(
+            feature = "opentelemetry_0_25",
+            feature = "opentelemetry_0_26",
+            feature = "opentelemetry_0_27",
+        ))]
         let unit = metric.unit.to_string();
         let mut descriptor = MetricDescriptor {
             r#type: descriptor_type.clone(),
@@ -283,7 +327,7 @@ impl GCPMetricsExporter {
                 descriptor.metric_kind = MetricKind::Gauge.into();
                 descriptor.value_type = metric_descriptor::ValueType::Double.into();
             } else {
-                global::handle_error(MetricsError::Other(format!(
+                utils::log_warning(MetricsError::Other(format!(
                 "GCPMetricsExporter: Unsupported metric data type, ignoring it for metric with name '{}'", metric.name),
             ));
                 // warning!("Unsupported metric data type, ignoring it");
@@ -298,7 +342,7 @@ impl GCPMetricsExporter {
         let channel = match self.make_chanel().await {
             Ok(channel) => channel,
             Err(err) => {
-                global::handle_error(MetricsError::Other(format!("GCPMetricsExporter: Cant init google services grpc transport channel [Make issue with this case in github repo]: {:?}", err)));
+                utils::log_warning(MetricsError::Other(format!("GCPMetricsExporter: Cant init google services grpc transport channel [Make issue with this case in github repo]: {:?}", err)));
                 return None;
             }
         };
@@ -307,7 +351,7 @@ impl GCPMetricsExporter {
         loop {
             iteration += 1;
             if iteration > 101 {
-                global::handle_error(MetricsError::Other(
+                utils::log_warning(MetricsError::Other(
                     "GCPMetricsExporter: Cant create_metric_descriptor".into(),
                 ));
                 return None;
@@ -326,7 +370,7 @@ impl GCPMetricsExporter {
                     );
                 }
                 Err(err) => {
-                    global::handle_error(MetricsError::Other(format!(
+                    utils::log_warning(MetricsError::Other(format!(
                         "GCPMetricsExporter: cant authorize: {:?}",
                         err
                     )));
@@ -342,7 +386,7 @@ impl GCPMetricsExporter {
                     //     descriptor,
                     //     exc_info=ex,
                     // )
-                    global::handle_error(MetricsError::Other(format!(
+                    utils::log_warning(MetricsError::Other(format!(
                         "GCPMetricsExporter: Retry send create_metric_descriptor: {:?}",
                         err
                     )));
@@ -510,7 +554,7 @@ impl GCPMetricsExporter {
                         ));
                     }
                 } else {
-                    global::handle_error(MetricsError::Other(format!(
+                    utils::log_warning(MetricsError::Other(format!(
                         "GCPMetricsExporter: Unsupported metric data type, ignoring it for metric with name '{}'", metric.name),
                     ));
                 };
@@ -566,7 +610,7 @@ impl GCPMetricsExporter {
                 };
                 let mut msc = MetricServiceClient::new(channel);
                 if let Err(err) = msc.create_time_series(req).await {
-                    global::handle_error(MetricsError::Other(format!(
+                    utils::log_warning(MetricsError::Other(format!(
                         "GCPMetricsExporter: Cant send time series: {:?}",
                         err
                     )));
@@ -581,7 +625,7 @@ impl GCPMetricsExporter {
                             continue;
                         }
                         _ => {
-                            global::handle_error(MetricsError::Other(format!(
+                            utils::log_warning(MetricsError::Other(format!(
                                 "GCPMetricsExporter: Cant send time series: Request: {:?}",
                                 create_time_series_request
                             )));
@@ -619,5 +663,10 @@ impl PushMetricsExporter for GCPMetricsExporter {
         // TracepointState automatically unregisters when dropped
         // https://github.com/microsoft/LinuxTracepoints-Rust/blob/main/eventheader/src/native.rs#L618
         Ok(())
+    }
+
+    #[cfg(any(feature = "opentelemetry_0_27",))]
+    fn temporality(&self) -> Temporality {
+        Temporality::default()
     }
 }
