@@ -422,8 +422,10 @@ impl GCPMetricsExporter {
                 //     }
                 } else if let Some(v) = data.downcast_ref::<SdkSum<u64>>() {
                     for data_point in &v.data_points {
-                        all_series.push(data_point_to_time_series::convert_i64(
+                        all_series.push(data_point_to_time_series::sum_convert_i64(
                             data_point,
+                            &v.start_time,
+                            &v.time,
                             &descriptor,
                             &monitored_resource_data,
                             self.add_unique_identifier,
@@ -432,8 +434,10 @@ impl GCPMetricsExporter {
                     }
                 } else if let Some(v) = data.downcast_ref::<SdkSum<i64>>() {
                     for data_point in &v.data_points {
-                        all_series.push(data_point_to_time_series::convert_i64(
+                        all_series.push(data_point_to_time_series::sum_convert_i64(
                             data_point,
+                            &v.start_time,
+                            &v.time,
                             &descriptor,
                             &monitored_resource_data,
                             self.add_unique_identifier,
@@ -442,8 +446,10 @@ impl GCPMetricsExporter {
                     }
                 } else if let Some(v) = data.downcast_ref::<SdkSum<f64>>() {
                     for data_point in &v.data_points {
-                        all_series.push(data_point_to_time_series::convert_f64(
+                        all_series.push(data_point_to_time_series::sum_convert_f64(
                             data_point,
+                            &v.start_time,
+                            &v.time,
                             &descriptor,
                             &monitored_resource_data,
                             self.add_unique_identifier,
@@ -452,8 +458,10 @@ impl GCPMetricsExporter {
                     }
                 } else if let Some(v) = data.downcast_ref::<SdkGauge<u64>>() {
                     for data_point in &v.data_points {
-                        all_series.push(data_point_to_time_series::convert_i64(
+                        all_series.push(data_point_to_time_series::gauge_convert_i64(
                             data_point,
+                            &v.start_time,
+                            &v.time,
                             &descriptor,
                             &monitored_resource_data,
                             self.add_unique_identifier,
@@ -462,8 +470,10 @@ impl GCPMetricsExporter {
                     }
                 } else if let Some(v) = data.downcast_ref::<SdkGauge<i64>>() {
                     for data_point in &v.data_points {
-                        all_series.push(data_point_to_time_series::convert_i64(
+                        all_series.push(data_point_to_time_series::gauge_convert_i64(
                             data_point,
+                            &v.start_time,
+                            &v.time,
                             &descriptor,
                             &monitored_resource_data,
                             self.add_unique_identifier,
@@ -472,8 +482,10 @@ impl GCPMetricsExporter {
                     }
                 } else if let Some(v) = data.downcast_ref::<SdkGauge<f64>>() {
                     for data_point in &v.data_points {
-                        all_series.push(data_point_to_time_series::convert_f64(
+                        all_series.push(data_point_to_time_series::gauge_convert_f64(
                             data_point,
+                            &v.start_time,
+                            &v.time,
                             &descriptor,
                             &monitored_resource_data,
                             self.add_unique_identifier,

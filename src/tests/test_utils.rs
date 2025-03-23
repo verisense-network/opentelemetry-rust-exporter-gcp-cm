@@ -188,10 +188,6 @@ pub(crate) fn init_metrics(res_attributes: Vec<opentelemetry::KeyValue>) -> SdkM
         .with_attributes(res_attributes.clone())
         .build();
     let exporter = crate::GCPMetricsExporter::fake_new();
-    #[cfg(feature = "tokio")]
-    let rt = opentelemetry_sdk::runtime::Tokio;
-    #[cfg(feature = "async-std")]
-    let rt = runtime::AsyncStd;
     let reader = PeriodicReader::builder(exporter).build();
     SdkMeterProvider::builder()
         .with_resource(res)

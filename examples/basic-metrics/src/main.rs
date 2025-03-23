@@ -3,7 +3,7 @@ use opentelemetry_gcloud_monitoring_exporter::{GCPMetricsExporter, GCPMetricsExp
 use opentelemetry_resourcedetector_gcp_rust::GoogleCloudResourceDetector;
 use opentelemetry_sdk::{
     metrics::{PeriodicReader, SdkMeterProvider},
-    runtime, Resource,
+    Resource,
 };
 use std::time::Duration;
 
@@ -12,13 +12,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut cfg = GCPMetricsExporterConfig::default();
     cfg.prefix = "custom.googleapis.com/test_service".to_string();
     let exporter = GCPMetricsExporter::new_gcp_auth(cfg).await?;
-    let reader = PeriodicReader::builder(exporter, runtime::Tokio).build();
-    let gcp_detector = GoogleCloudResourceDetector::new().await;
+    let reader = PeriodicReader::builder(exporter).build();
+    let gcp_detector = Box::new(GoogleCloudResourceDetector::new().await);
     // if we deploy to cloud run or vm instance in gcp we should specify namespace
     // if we don't have namespace we can specify it how 'default'
-    let res0 = Resource::new(vec![KeyValue::new("service.namespace", "default")]);
-    let res = Resource::default().merge(&gcp_detector.get_resource());
-    let res = res.merge(&res0);
+    let res = Resource::builder_empty()
+        .with_attributes(vec![KeyValue::new("service.namespace", "default")])
+        .with_detector(gcp_detector)
+        .build();
     let meter_provider = SdkMeterProvider::builder()
         .with_resource(res)
         .with_reader(reader)

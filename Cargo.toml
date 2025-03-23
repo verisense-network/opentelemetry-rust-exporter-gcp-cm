@@ -17,7 +17,7 @@ rust-version = "1.75"
 doctest = false
 
 [features]
-default = ["gcp_auth"]
+default = ["gcp_auth", "tokio"]
 gcp_auth = ["dep:gcp_auth"]
 tokio = ["dep:tokio", "opentelemetry_sdk/rt-tokio"]
 
@@ -50,7 +50,7 @@ tonic = { version = "0.12", features = [
 ] }
 
 unicode-segmentation = "1.12.0"
-tokio = { version = "1.38", features = [
+tokio = { version = "1", features = [
     "fs",
     "io-util",
     "sync",
