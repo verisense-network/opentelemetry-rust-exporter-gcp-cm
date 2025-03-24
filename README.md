@@ -7,7 +7,7 @@ For resource detection see [opentelemetry-resourcedetector-gcp-rust](https://git
 # Support OpenTelemetry SDK versions
 `opentelemetry_sdk:0.29      | opentelemetry_gcloud_monitoring_exporter:0.16  `\
 `opentelemetry_sdk:0.28      | opentelemetry_gcloud_monitoring_exporter:0.15  `\
-`opentelemetry_sdk:0.21-27   | opentelemetry_gcloud_monitoring_exporter:0.14  `\
+`opentelemetry_sdk:0.21-27   | opentelemetry_gcloud_monitoring_exporter:0.14  `
 
 # Installation
 `cargo add opentelemetry_gcloud_monitoring_exporter` - exporter
