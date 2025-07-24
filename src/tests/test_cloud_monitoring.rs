@@ -14,13 +14,10 @@ mod tests {
 
     use opentelemetry::metrics::MeterProvider;
     use opentelemetry::KeyValue;
-    use opentelemetry_sdk::metrics::InstrumentKind;
+    use opentelemetry_sdk::metrics::{InstrumentKind, StreamBuilder};
     use opentelemetry_sdk::runtime;
     use opentelemetry_sdk::{
-        metrics::{
-            periodic_reader_with_async_runtime::PeriodicReader, Aggregation, Instrument,
-            SdkMeterProvider, Stream,
-        },
+        metrics::{periodic_reader_with_async_runtime::PeriodicReader, Aggregation, Instrument, SdkMeterProvider},
         Resource,
     };
     use pretty_assertions_sorted_fork::{assert_eq, assert_eq_all_sorted, assert_eq_sorted};
@@ -78,27 +75,22 @@ mod tests {
                 labels: vec![
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "string".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "int".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "float".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                 ],
-                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative
-                    .into(),
-                value_type: gcloud_sdk::google::api::metric_descriptor::ValueType::Distribution
-                    .into(),
+                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative.into(),
+                value_type: gcloud_sdk::google::api::metric_descriptor::ValueType::Distribution.into(),
                 unit: "myunit".to_string(),
                 description: "foo".to_string(),
                 display_name: "myhistogram".to_string(),
@@ -263,17 +255,20 @@ mod tests {
         let exporter = crate::GCPMetricsExporter::fake_new();
         let reader = PeriodicReader::builder(exporter, runtime::Tokio).build();
         let my_view_change_aggregation = |i: &Instrument| {
-            if i.name == "my_single_bucket_histogram" {
-                if let Some(InstrumentKind::Histogram) = i.kind {
-                    let streem = Stream::new()
-                        .name(i.name.clone())
-                        .description(i.description.clone())
-                        .unit(i.unit.clone())
-                        .aggregation(Aggregation::ExplicitBucketHistogram {
+            if i.name() == "my_single_bucket_histogram" {
+                if let InstrumentKind::Histogram = i.kind() {
+                    let stream = StreamBuilder::default()
+                        .with_name(i.name().to_string())
+                        // .with_description(i.description().to_string()) // TODO: description() is not supported in opentelemetry_sdk Instrument
+                        .with_description("foo".to_string()) // use a static description for testing
+                        .with_unit(i.unit().to_string())
+                        .with_cardinality_limit(100)
+                        .with_aggregation(Aggregation::ExplicitBucketHistogram {
                             boundaries: vec![5.5],
                             record_min_max: true,
-                        });
-                    return Some(streem);
+                        })
+                        .build();
+                    return stream.ok();
                 }
             }
             None
@@ -331,27 +326,22 @@ mod tests {
                 labels: vec![
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "string".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "int".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "float".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                 ],
-                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative
-                    .into(),
-                value_type: gcloud_sdk::google::api::metric_descriptor::ValueType::Distribution
-                    .into(),
+                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative.into(),
+                value_type: gcloud_sdk::google::api::metric_descriptor::ValueType::Distribution.into(),
                 unit: "myunit".to_string(),
                 description: "foo".to_string(),
                 display_name: "my_single_bucket_histogram".to_string(),
@@ -527,20 +517,17 @@ mod tests {
                 labels: vec![
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "string".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "int".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "float".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                 ],
@@ -626,11 +613,9 @@ mod tests {
                     //     },
                     // ),
                     value: Some(TypedValue {
-                        value: Some(
-                            gcloud_sdk::google::monitoring::v3::typed_value::Value::DoubleValue(
-                                45.6,
-                            ),
-                        ),
+                        value: Some(gcloud_sdk::google::monitoring::v3::typed_value::Value::DoubleValue(
+                            45.6,
+                        )),
                     }),
                 }],
                 unit: "myunit".to_string(),
@@ -683,20 +668,17 @@ mod tests {
                 labels: vec![
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "string".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "int".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "float".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                 ],
@@ -782,9 +764,7 @@ mod tests {
                     //     },
                     // ),
                     value: Some(TypedValue {
-                        value: Some(
-                            gcloud_sdk::google::monitoring::v3::typed_value::Value::Int64Value(45),
-                        ),
+                        value: Some(gcloud_sdk::google::monitoring::v3::typed_value::Value::Int64Value(45)),
                     }),
                 }],
                 unit: "myunit".to_string(),
@@ -840,20 +820,17 @@ mod tests {
                 labels: vec![
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "string".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "int".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "float".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                 ],
@@ -939,9 +916,7 @@ mod tests {
                     //     },
                     // ),
                     value: Some(TypedValue {
-                        value: Some(
-                            gcloud_sdk::google::monitoring::v3::typed_value::Value::Int64Value(45),
-                        ),
+                        value: Some(gcloud_sdk::google::monitoring::v3::typed_value::Value::Int64Value(45)),
                     }),
                 }],
                 unit: "myunit".to_string(),
@@ -997,20 +972,17 @@ mod tests {
                 labels: vec![
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "string".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "int".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "float".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                 ],
@@ -1096,11 +1068,9 @@ mod tests {
                     //     },
                     // ),
                     value: Some(TypedValue {
-                        value: Some(
-                            gcloud_sdk::google::monitoring::v3::typed_value::Value::DoubleValue(
-                                45.0,
-                            ),
-                        ),
+                        value: Some(gcloud_sdk::google::monitoring::v3::typed_value::Value::DoubleValue(
+                            45.0,
+                        )),
                     }),
                 }],
                 unit: "myunit".to_string(),
@@ -1156,25 +1126,21 @@ mod tests {
                 labels: vec![
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "string".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "int".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "float".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                 ],
-                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative
-                    .into(),
+                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative.into(),
                 value_type: gcloud_sdk::google::api::metric_descriptor::ValueType::Int64.into(),
                 unit: "myunit".to_string(),
                 description: "foo".to_string(),
@@ -1239,8 +1205,7 @@ mod tests {
                     ]),
                 }),
                 metadata: None,
-                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative
-                    .into(),
+                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative.into(),
                 value_type: gcloud_sdk::google::api::metric_descriptor::ValueType::Int64.into(),
                 points: vec![Point {
                     interval: None,
@@ -1257,9 +1222,7 @@ mod tests {
                     //     },
                     // ),
                     value: Some(TypedValue {
-                        value: Some(
-                            gcloud_sdk::google::monitoring::v3::typed_value::Value::Int64Value(45),
-                        ),
+                        value: Some(gcloud_sdk::google::monitoring::v3::typed_value::Value::Int64Value(45)),
                     }),
                 }],
                 unit: "myunit".to_string(),
@@ -1315,25 +1278,21 @@ mod tests {
                 labels: vec![
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "string".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "int".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "float".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                 ],
-                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative
-                    .into(),
+                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative.into(),
                 value_type: gcloud_sdk::google::api::metric_descriptor::ValueType::Double.into(),
                 unit: "myunit".to_string(),
                 description: "foo".to_string(),
@@ -1398,8 +1357,7 @@ mod tests {
                     ]),
                 }),
                 metadata: None,
-                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative
-                    .into(),
+                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative.into(),
                 value_type: gcloud_sdk::google::api::metric_descriptor::ValueType::Double.into(),
                 points: vec![Point {
                     interval: None,
@@ -1416,11 +1374,9 @@ mod tests {
                     //     },
                     // ),
                     value: Some(TypedValue {
-                        value: Some(
-                            gcloud_sdk::google::monitoring::v3::typed_value::Value::DoubleValue(
-                                45.0,
-                            ),
-                        ),
+                        value: Some(gcloud_sdk::google::monitoring::v3::typed_value::Value::DoubleValue(
+                            45.0,
+                        )),
                     }),
                 }],
                 unit: "myunit".to_string(),
@@ -1476,20 +1432,17 @@ mod tests {
                 labels: vec![
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "string".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "int".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "float".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                 ],
@@ -1575,9 +1528,7 @@ mod tests {
                     //     },
                     // ),
                     value: Some(TypedValue {
-                        value: Some(
-                            gcloud_sdk::google::monitoring::v3::typed_value::Value::Int64Value(45),
-                        ),
+                        value: Some(gcloud_sdk::google::monitoring::v3::typed_value::Value::Int64Value(45)),
                     }),
                 }],
                 unit: "myunit".to_string(),
@@ -1633,20 +1584,17 @@ mod tests {
                 labels: vec![
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "string".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "int".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "float".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                 ],
@@ -1732,11 +1680,9 @@ mod tests {
                     //     },
                     // ),
                     value: Some(TypedValue {
-                        value: Some(
-                            gcloud_sdk::google::monitoring::v3::typed_value::Value::DoubleValue(
-                                45.0,
-                            ),
-                        ),
+                        value: Some(gcloud_sdk::google::monitoring::v3::typed_value::Value::DoubleValue(
+                            45.0,
+                        )),
                     }),
                 }],
                 unit: "myunit".to_string(),
@@ -1791,25 +1737,21 @@ mod tests {
                 labels: vec![
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "string".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "int".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "float".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                 ],
-                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative
-                    .into(),
+                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative.into(),
                 value_type: gcloud_sdk::google::api::metric_descriptor::ValueType::Int64.into(),
                 unit: "myunit".to_string(),
                 description: "foo".to_string(),
@@ -1874,8 +1816,7 @@ mod tests {
                     ]),
                 }),
                 metadata: None,
-                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative
-                    .into(),
+                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative.into(),
                 value_type: gcloud_sdk::google::api::metric_descriptor::ValueType::Int64.into(),
                 points: vec![Point {
                     interval: None,
@@ -1892,9 +1833,7 @@ mod tests {
                     //     },
                     // ),
                     value: Some(TypedValue {
-                        value: Some(
-                            gcloud_sdk::google::monitoring::v3::typed_value::Value::Int64Value(45),
-                        ),
+                        value: Some(gcloud_sdk::google::monitoring::v3::typed_value::Value::Int64Value(45)),
                     }),
                 }],
                 unit: "myunit".to_string(),
@@ -1949,25 +1888,21 @@ mod tests {
                 labels: vec![
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "string".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "int".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "float".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                 ],
-                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative
-                    .into(),
+                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative.into(),
                 value_type: gcloud_sdk::google::api::metric_descriptor::ValueType::Double.into(),
                 unit: "myunit".to_string(),
                 description: "foo".to_string(),
@@ -2032,8 +1967,7 @@ mod tests {
                     ]),
                 }),
                 metadata: None,
-                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative
-                    .into(),
+                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative.into(),
                 value_type: gcloud_sdk::google::api::metric_descriptor::ValueType::Double.into(),
                 points: vec![Point {
                     interval: None,
@@ -2050,11 +1984,9 @@ mod tests {
                     //     },
                     // ),
                     value: Some(TypedValue {
-                        value: Some(
-                            gcloud_sdk::google::monitoring::v3::typed_value::Value::DoubleValue(
-                                45.0,
-                            ),
-                        ),
+                        value: Some(gcloud_sdk::google::monitoring::v3::typed_value::Value::DoubleValue(
+                            45.0,
+                        )),
                     }),
                 }],
                 unit: "myunit".to_string(),
@@ -2104,8 +2036,7 @@ mod tests {
                     value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                     description: "".to_string(),
                 }],
-                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative
-                    .into(),
+                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative.into(),
                 value_type: gcloud_sdk::google::api::metric_descriptor::ValueType::Int64.into(),
                 unit: "myunit".to_string(),
                 description: "foo".to_string(),
@@ -2155,10 +2086,7 @@ mod tests {
             time_series: vec![TimeSeries {
                 metric: Some(gcloud_sdk::google::api::Metric {
                     r#type: "workload.googleapis.com/mycounter".to_string(),
-                    labels: HashMap::from([(
-                        "key_1some_invalid__key".to_string(),
-                        "value".to_string(),
-                    )]),
+                    labels: HashMap::from([("key_1some_invalid__key".to_string(), "value".to_string())]),
                 }),
                 resource: Some(gcloud_sdk::google::api::MonitoredResource {
                     r#type: "generic_node".to_string(),
@@ -2169,8 +2097,7 @@ mod tests {
                     ]),
                 }),
                 metadata: None,
-                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative
-                    .into(),
+                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative.into(),
                 value_type: gcloud_sdk::google::api::metric_descriptor::ValueType::Int64.into(),
                 points: vec![Point {
                     interval: None,
@@ -2187,9 +2114,7 @@ mod tests {
                     //     },
                     // ),
                     value: Some(TypedValue {
-                        value: Some(
-                            gcloud_sdk::google::monitoring::v3::typed_value::Value::Int64Value(12),
-                        ),
+                        value: Some(gcloud_sdk::google::monitoring::v3::typed_value::Value::Int64Value(12)),
                     }),
                 }],
                 unit: "myunit".to_string(),
@@ -2249,25 +2174,21 @@ mod tests {
                 labels: vec![
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "string".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "int".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                     gcloud_sdk::google::api::LabelDescriptor {
                         key: "float".to_string(),
-                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String
-                            .into(),
+                        value_type: gcloud_sdk::google::api::label_descriptor::ValueType::String.into(),
                         description: "".to_string(),
                     },
                 ],
-                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative
-                    .into(),
+                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative.into(),
                 value_type: gcloud_sdk::google::api::metric_descriptor::ValueType::Int64.into(),
                 unit: "myunit".to_string(),
                 description: "foo".to_string(),
@@ -2334,8 +2255,7 @@ mod tests {
                     ]),
                 }),
                 metadata: None,
-                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative
-                    .into(),
+                metric_kind: gcloud_sdk::google::api::metric_descriptor::MetricKind::Cumulative.into(),
                 value_type: gcloud_sdk::google::api::metric_descriptor::ValueType::Int64.into(),
                 points: vec![Point {
                     interval: None,
@@ -2352,9 +2272,7 @@ mod tests {
                     //     },
                     // ),
                     value: Some(TypedValue {
-                        value: Some(
-                            gcloud_sdk::google::monitoring::v3::typed_value::Value::Int64Value(12),
-                        ),
+                        value: Some(gcloud_sdk::google::monitoring::v3::typed_value::Value::Int64Value(12)),
                     }),
                 }],
                 unit: "myunit".to_string(),
@@ -2420,8 +2338,7 @@ mod tests {
         //     println!("create_metric_descriptor -->");
         //     println!("{:#?}", v);
         // });
-        let create_metric_descriptor_user_agent =
-            create_metric_descriptor_user_agent.get(0).unwrap().clone();
+        let create_metric_descriptor_user_agent = create_metric_descriptor_user_agent.get(0).unwrap().clone();
         println!(
             "create_metric_descriptor_user_agent --> '{}'",
             create_metric_descriptor_user_agent
@@ -2439,10 +2356,7 @@ mod tests {
             })
             .collect::<Vec<String>>();
         let create_time_series_user_agent = create_time_series_user_agent.get(0).unwrap().clone();
-        println!(
-            "create_time_series_user_agent --> '{}'",
-            create_time_series_user_agent
-        );
+        println!("create_time_series_user_agent --> '{}'", create_time_series_user_agent);
 
         assert!(false);
     }

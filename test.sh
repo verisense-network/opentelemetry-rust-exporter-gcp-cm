@@ -8,3 +8,7 @@ cargo +1.81.0 test
 cargo +1.82.0 test
 cargo +1.83.0 test
 cargo +1.84.0 test
+cargo +1.85.0 test
+cargo +1.86.0 test
+cargo +1.87.0 test
+cargo +1.88.0 test

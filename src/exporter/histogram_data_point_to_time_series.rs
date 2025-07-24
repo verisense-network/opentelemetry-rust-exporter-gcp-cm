@@ -35,30 +35,29 @@ pub fn convert<T: ToF64 + Copy>(
         }),
         value: Some(gcloud_sdk::google::monitoring::v3::TypedValue {
             value: Some(gcloud_sdk::google::monitoring::v3::typed_value::Value::DistributionValue(gcloud_sdk::google::api::Distribution {
-                count: data_point.count as i64,
+                count: data_point.count() as i64,
                 mean: {
-                    if data_point.count == 0 {
+                    if data_point.count() == 0 {
                         0.0
                     } else {
-                        data_point.sum.to_f64() / data_point.count as f64
+                        data_point.sum().to_f64() / data_point.count() as f64
                     }
                 },
                 sum_of_squared_deviation: 0.0,
                 bucket_options: Some(gcloud_sdk::google::api::distribution::BucketOptions {
                     options: Some(gcloud_sdk::google::api::distribution::bucket_options::Options::ExplicitBuckets(gcloud_sdk::google::api::distribution::bucket_options::Explicit {
-                        bounds: data_point.bounds.clone(),
+                        bounds: data_point.bounds().collect::<Vec<f64>>(),
                     })),
                 }),
                 range: None,
-                bucket_counts: data_point.bucket_counts.iter().map(|v| *v as i64).collect(),
+                bucket_counts: data_point.bucket_counts().map(|v| v as i64).collect(),
                 exemplars: Default::default(),
             })),
         }),
     };
 
     let mut labels = data_point
-        .attributes
-        .iter()
+        .attributes()
         .map(kv_map_normalize_k_v)
         .collect::<std::collections::HashMap<String, String>>();
     if add_unique_identifier {

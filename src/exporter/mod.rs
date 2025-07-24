@@ -9,9 +9,7 @@ use crate::{
 
 use gcloud_sdk::google::{
     api::{metric_descriptor, metric_descriptor::MetricKind, LabelDescriptor, MetricDescriptor},
-    monitoring::v3::{
-        metric_service_client::MetricServiceClient, CreateTimeSeriesRequest, TimeSeries,
-    },
+    monitoring::v3::{metric_service_client::MetricServiceClient, CreateTimeSeriesRequest, TimeSeries},
 };
 use itertools::Itertools;
 use opentelemetry_resourcedetector_gcp_rust::mapping::get_monitored_resource;
@@ -19,13 +17,9 @@ use opentelemetry_resourcedetector_gcp_rust::mapping::get_monitored_resource;
 use opentelemetry_sdk::{
     error::OTelSdkError,
     metrics::{
-        data::{
-            ExponentialHistogram as SdkExponentialHistogram, Gauge as SdkGauge,
-            Histogram as SdkHistogram, Metric as OpentelemetrySdkMetric, ResourceMetrics,
-            Sum as SdkSum,
-        },
+        data::{AggregatedMetrics, Metric as OpentelemetrySdkMetric, MetricData, ResourceMetrics},
         exporter::PushMetricExporter as PushMetricsExporter,
-        MetricError as MetricsError, Temporality,
+        Temporality,
     },
 };
 
@@ -121,17 +115,14 @@ impl GCPMetricsExporter {
                 .await
                 .map_err(|e| crate::error::ErrorKind::Other(e.to_string()).into())
         } else {
-            GoogleEnvironment::init_google_services_channel("https://monitoring.googleapis.com")
-                .await
+            GoogleEnvironment::init_google_services_channel("https://monitoring.googleapis.com").await
         }
     }
 }
 
 #[cfg(feature = "gcp_auth")]
 impl GCPMetricsExporter {
-    pub async fn new_gcp_auth(
-        config: GCPMetricsExporterConfig,
-    ) -> Result<GCPMetricsExporter, gcp_auth::Error> {
+    pub async fn new_gcp_auth(config: GCPMetricsExporterConfig) -> Result<GCPMetricsExporter, gcp_auth::Error> {
         let auth = crate::gcp_auth_authorizer::GcpAuth::new().await?;
         Ok(GCPMetricsExporter::new(Arc::new(auth), config))
     }
@@ -139,10 +130,7 @@ impl GCPMetricsExporter {
 
 impl GCPMetricsExporter {
     pub fn fake_new() -> GCPMetricsExporter {
-        GCPMetricsExporter::new(
-            Arc::new(FakeAuthorizer::new()),
-            GCPMetricsExporterConfig::default(),
-        )
+        GCPMetricsExporter::new(Arc::new(FakeAuthorizer::new()), GCPMetricsExporterConfig::default())
     }
 }
 
@@ -160,11 +148,8 @@ impl GCPMetricsExporter {
     ///
     /// :param record:
     /// :return:
-    async fn get_metric_descriptor(
-        &self,
-        metric: &OpentelemetrySdkMetric,
-    ) -> Option<MetricDescriptor> {
-        let descriptor_type = format!("{}/{}", self.prefix, metric.name);
+    async fn get_metric_descriptor(&self, metric: &OpentelemetrySdkMetric) -> Option<MetricDescriptor> {
+        let descriptor_type = format!("{}/{}", self.prefix, metric.name());
         let cached_metric_descriptor = {
             let metric_descriptors = self.metric_descriptors.read().await;
             metric_descriptors.get(&descriptor_type).cloned()
@@ -173,15 +158,15 @@ impl GCPMetricsExporter {
             return Some(cached_metric_descriptor);
         }
 
-        let unit = metric.unit.to_string();
+        let unit = metric.unit().to_string();
         let mut descriptor = MetricDescriptor {
             r#type: descriptor_type.clone(),
-            display_name: metric.name.to_string(),
-            description: metric.description.to_string(),
+            display_name: metric.name().to_string(),
+            description: metric.description().to_string(),
             unit: unit,
             ..Default::default()
         };
-        let seen_keys: HashSet<String> = get_data_points_attributes_keys(metric.data.as_any());
+        let seen_keys: HashSet<String> = get_data_points_attributes_keys(metric.data());
 
         for key in &seen_keys {
             descriptor.labels.push(LabelDescriptor {
@@ -197,63 +182,74 @@ impl GCPMetricsExporter {
                 ..Default::default()
             });
         }
-        {
-            let data = metric.data.as_any();
-            if let Some(_) = data.downcast_ref::<SdkHistogram<i64>>() {
-                descriptor.metric_kind = MetricKind::Cumulative.into();
-                descriptor.value_type = metric_descriptor::ValueType::Distribution.into();
-            } else if let Some(_) = data.downcast_ref::<SdkHistogram<u64>>() {
-                descriptor.metric_kind = MetricKind::Cumulative.into();
-                descriptor.value_type = metric_descriptor::ValueType::Distribution.into();
-            } else if let Some(_) = data.downcast_ref::<SdkHistogram<f64>>() {
-                descriptor.metric_kind = MetricKind::Cumulative.into();
-                descriptor.value_type = metric_descriptor::ValueType::Distribution.into();
-            } else if let Some(_) = data.downcast_ref::<SdkExponentialHistogram<i64>>() {
-                descriptor.metric_kind = MetricKind::Cumulative.into();
-                descriptor.value_type = metric_descriptor::ValueType::Distribution.into();
-            } else if let Some(_) = data.downcast_ref::<SdkExponentialHistogram<u64>>() {
-                descriptor.metric_kind = MetricKind::Cumulative.into();
-                descriptor.value_type = metric_descriptor::ValueType::Distribution.into();
-            } else if let Some(_) = data.downcast_ref::<SdkExponentialHistogram<f64>>() {
-                descriptor.metric_kind = MetricKind::Cumulative.into();
-                descriptor.value_type = metric_descriptor::ValueType::Distribution.into();
-            } else if let Some(v) = data.downcast_ref::<SdkSum<u64>>() {
-                descriptor.metric_kind = if v.is_monotonic {
-                    MetricKind::Cumulative.into()
-                } else {
-                    MetricKind::Gauge.into()
-                };
-                descriptor.value_type = metric_descriptor::ValueType::Int64.into();
-            } else if let Some(v) = data.downcast_ref::<SdkSum<i64>>() {
-                descriptor.metric_kind = if v.is_monotonic {
-                    MetricKind::Cumulative.into()
-                } else {
-                    MetricKind::Gauge.into()
-                };
-                descriptor.value_type = metric_descriptor::ValueType::Int64.into();
-            } else if let Some(v) = data.downcast_ref::<SdkSum<f64>>() {
-                descriptor.metric_kind = if v.is_monotonic {
-                    MetricKind::Cumulative.into()
-                } else {
-                    MetricKind::Gauge.into()
-                };
-                descriptor.value_type = metric_descriptor::ValueType::Double.into();
-            } else if let Some(_) = data.downcast_ref::<SdkGauge<u64>>() {
-                descriptor.metric_kind = MetricKind::Gauge.into();
-                descriptor.value_type = metric_descriptor::ValueType::Int64.into();
-            } else if let Some(_) = data.downcast_ref::<SdkGauge<i64>>() {
-                descriptor.metric_kind = MetricKind::Gauge.into();
-                descriptor.value_type = metric_descriptor::ValueType::Int64.into();
-            } else if let Some(_) = data.downcast_ref::<SdkGauge<f64>>() {
-                descriptor.metric_kind = MetricKind::Gauge.into();
-                descriptor.value_type = metric_descriptor::ValueType::Double.into();
-            } else {
-                utils::log_warning(MetricsError::Other(format!(
-                "GCPMetricsExporter: Unsupported metric data type, ignoring it for metric with name '{}'", metric.name),
-            ));
-                // warning!("Unsupported metric data type, ignoring it");
-                return None;
-            }
+
+        match metric.data() {
+            AggregatedMetrics::F64(v) => match v {
+                MetricData::Histogram(_) => {
+                    descriptor.metric_kind = MetricKind::Cumulative.into();
+                    descriptor.value_type = metric_descriptor::ValueType::Distribution.into();
+                }
+                MetricData::ExponentialHistogram(_) => {
+                    descriptor.metric_kind = MetricKind::Cumulative.into();
+                    descriptor.value_type = metric_descriptor::ValueType::Distribution.into();
+                }
+                MetricData::Sum(m) => {
+                    descriptor.metric_kind = if m.is_monotonic() {
+                        MetricKind::Cumulative.into()
+                    } else {
+                        MetricKind::Gauge.into()
+                    };
+                    descriptor.value_type = metric_descriptor::ValueType::Double.into();
+                }
+                MetricData::Gauge(_) => {
+                    descriptor.metric_kind = MetricKind::Gauge.into();
+                    descriptor.value_type = metric_descriptor::ValueType::Double.into();
+                }
+            },
+            AggregatedMetrics::I64(v) => match v {
+                MetricData::Histogram(_) => {
+                    descriptor.metric_kind = MetricKind::Cumulative.into();
+                    descriptor.value_type = metric_descriptor::ValueType::Distribution.into();
+                }
+                MetricData::ExponentialHistogram(_) => {
+                    descriptor.metric_kind = MetricKind::Cumulative.into();
+                    descriptor.value_type = metric_descriptor::ValueType::Distribution.into();
+                }
+                MetricData::Sum(m) => {
+                    descriptor.metric_kind = if m.is_monotonic() {
+                        MetricKind::Cumulative.into()
+                    } else {
+                        MetricKind::Gauge.into()
+                    };
+                    descriptor.value_type = metric_descriptor::ValueType::Int64.into();
+                }
+                MetricData::Gauge(_) => {
+                    descriptor.metric_kind = MetricKind::Gauge.into();
+                    descriptor.value_type = metric_descriptor::ValueType::Int64.into();
+                }
+            },
+            AggregatedMetrics::U64(v) => match v {
+                MetricData::Histogram(_) => {
+                    descriptor.metric_kind = MetricKind::Cumulative.into();
+                    descriptor.value_type = metric_descriptor::ValueType::Distribution.into();
+                }
+                MetricData::ExponentialHistogram(_) => {
+                    descriptor.metric_kind = MetricKind::Cumulative.into();
+                    descriptor.value_type = metric_descriptor::ValueType::Distribution.into();
+                }
+                MetricData::Sum(m) => {
+                    descriptor.metric_kind = if m.is_monotonic() {
+                        MetricKind::Cumulative.into()
+                    } else {
+                        MetricKind::Gauge.into()
+                    };
+                    descriptor.value_type = metric_descriptor::ValueType::Int64.into();
+                }
+                MetricData::Gauge(_) => {
+                    descriptor.metric_kind = MetricKind::Gauge.into();
+                    descriptor.value_type = metric_descriptor::ValueType::Int64.into();
+                }
+            },
         }
 
         let project_id = self
@@ -263,7 +259,10 @@ impl GCPMetricsExporter {
         let channel = match self.make_chanel().await {
             Ok(channel) => channel,
             Err(err) => {
-                utils::log_warning(MetricsError::Other(format!("GCPMetricsExporter: Cant init google services grpc transport channel [Make issue with this case in github repo]: {:?}", err)));
+                utils::log_warning(format!(
+                    "GCPMetricsExporter: Cant init google services grpc transport channel [Make issue with this case in github repo]: {:?}",
+                    err
+                ));
                 return None;
             }
         };
@@ -272,17 +271,13 @@ impl GCPMetricsExporter {
         loop {
             iteration += 1;
             if iteration > 101 {
-                utils::log_warning(MetricsError::Other(
-                    "GCPMetricsExporter: Cant create_metric_descriptor".into(),
-                ));
+                utils::log_warning(format!("GCPMetricsExporter: Cant create_metric_descriptor"));
                 return None;
             }
-            let mut req = tonic::Request::new(
-                gcloud_sdk::google::monitoring::v3::CreateMetricDescriptorRequest {
-                    name: format!("projects/{}", project_id),
-                    metric_descriptor: Some(descriptor.clone()),
-                },
-            );
+            let mut req = tonic::Request::new(gcloud_sdk::google::monitoring::v3::CreateMetricDescriptorRequest {
+                name: format!("projects/{}", project_id),
+                metric_descriptor: Some(descriptor.clone()),
+            });
             match self.authorizer.token().await {
                 Ok(token) => {
                     req.metadata_mut().insert(
@@ -291,10 +286,7 @@ impl GCPMetricsExporter {
                     );
                 }
                 Err(err) => {
-                    utils::log_warning(MetricsError::Other(format!(
-                        "GCPMetricsExporter: cant authorize: {:?}",
-                        err
-                    )));
+                    utils::log_warning(format!("GCPMetricsExporter: cant authorize: {:?}", err));
                     return None;
                 }
             }
@@ -307,10 +299,10 @@ impl GCPMetricsExporter {
                     //     descriptor,
                     //     exc_info=ex,
                     // )
-                    utils::log_warning(MetricsError::Other(format!(
+                    utils::log_warning(format!(
                         "GCPMetricsExporter: Retry send create_metric_descriptor: {:?}",
                         err
-                    )));
+                    ));
                     match err.code() {
                         tonic::Code::Unavailable
                         | tonic::Code::DataLoss
@@ -339,7 +331,7 @@ impl GCPMetricsExporter {
         Some(descriptor)
     }
 
-    async fn exec_export(&self, metrics: &mut ResourceMetrics) -> Result<(), OTelSdkError> {
+    async fn exec_export(&self, metrics: &ResourceMetrics) -> Result<(), OTelSdkError> {
         // // println!("export: {:#?}", metrics);
         // let proto_message: ExportMetricsServiceRequest = (&*metrics).into();
         // // println!("export: {}", serde_json::to_string_pretty(&proto_message).unwrap());
@@ -348,155 +340,152 @@ impl GCPMetricsExporter {
         // let mut file = std::fs::File::create("metrics.txt").unwrap();
         // file.write_all(format!("{:#?}", metrics).as_bytes()).unwrap();
         let monitored_resource_data = match self.custom_monitored_resource_data.clone() {
-            Some(custom_monitored_resource_data) => {
-                Some(gcloud_sdk::google::api::MonitoredResource {
-                    r#type: custom_monitored_resource_data.r#type,
-                    labels: custom_monitored_resource_data.labels,
-                })
-            }
-            None => get_monitored_resource(metrics.resource.clone()).map(|v| {
-                gcloud_sdk::google::api::MonitoredResource {
-                    r#type: v.r#type,
-                    labels: v.labels,
-                }
+            Some(custom_monitored_resource_data) => Some(gcloud_sdk::google::api::MonitoredResource {
+                r#type: custom_monitored_resource_data.r#type,
+                labels: custom_monitored_resource_data.labels,
+            }),
+            None => get_monitored_resource(metrics.resource()).map(|v| gcloud_sdk::google::api::MonitoredResource {
+                r#type: v.r#type,
+                labels: v.labels,
             }),
         };
 
         let mut all_series = Vec::<TimeSeries>::new();
-        for scope_metric in &metrics.scope_metrics {
-            for metric in &scope_metric.metrics {
-                let descriptor: MetricDescriptor =
-                    if let Some(descriptor) = self.get_metric_descriptor(metric).await {
-                        descriptor
-                    } else {
-                        continue;
-                    };
-                let data = metric.data.as_any();
-                if let Some(v) = data.downcast_ref::<SdkHistogram<i64>>() {
-                    for data_point in &v.data_points {
-                        all_series.push(histogram_data_point_to_time_series::convert(
-                            data_point,
-                            &v.start_time,
-                            &v.time,
-                            &descriptor,
-                            &monitored_resource_data,
-                            self.add_unique_identifier,
-                            &self.unique_identifier,
-                        ));
-                    }
-                } else if let Some(v) = data.downcast_ref::<SdkHistogram<u64>>() {
-                    for data_point in &v.data_points {
-                        all_series.push(histogram_data_point_to_time_series::convert(
-                            data_point,
-                            &v.start_time,
-                            &v.time,
-                            &descriptor,
-                            &monitored_resource_data,
-                            self.add_unique_identifier,
-                            &self.unique_identifier,
-                        ));
-                    }
-                } else if let Some(v) = data.downcast_ref::<SdkHistogram<f64>>() {
-                    for data_point in &v.data_points {
-                        all_series.push(histogram_data_point_to_time_series::convert(
-                            data_point,
-                            &v.start_time,
-                            &v.time,
-                            &descriptor,
-                            &monitored_resource_data,
-                            self.add_unique_identifier,
-                            &self.unique_identifier,
-                        ));
-                    }
-                // } else if let Some(v) = data.downcast_ref::<SdkExponentialHistogram<i64>>() {
-                //     for data_point in &v.data_points {
-                //         all_series.push(histogram_data_point_to_time_series::convert_exponential(data_point, &descriptor, &monitored_resource_data));
-                //     }
-                // } else if let Some(v) = data.downcast_ref::<SdkExponentialHistogram<u64>>() {
-                //     for data_point in &v.data_points {
-                //         all_series.push(histogram_data_point_to_time_series::convert_exponential(data_point, &descriptor, &monitored_resource_data));
-                //     }
-                // } else if let Some(v) = data.downcast_ref::<SdkExponentialHistogram<f64>>() {
-                //     for data_point in &v.data_points {
-                //         all_series.push(histogram_data_point_to_time_series::convert_exponential(data_point, &descriptor, &monitored_resource_data));
-                //     }
-                } else if let Some(v) = data.downcast_ref::<SdkSum<u64>>() {
-                    for data_point in &v.data_points {
-                        all_series.push(data_point_to_time_series::sum_convert_i64(
-                            data_point,
-                            &v.start_time,
-                            &v.time,
-                            &descriptor,
-                            &monitored_resource_data,
-                            self.add_unique_identifier,
-                            self.unique_identifier.clone(),
-                        ));
-                    }
-                } else if let Some(v) = data.downcast_ref::<SdkSum<i64>>() {
-                    for data_point in &v.data_points {
-                        all_series.push(data_point_to_time_series::sum_convert_i64(
-                            data_point,
-                            &v.start_time,
-                            &v.time,
-                            &descriptor,
-                            &monitored_resource_data,
-                            self.add_unique_identifier,
-                            self.unique_identifier.clone(),
-                        ));
-                    }
-                } else if let Some(v) = data.downcast_ref::<SdkSum<f64>>() {
-                    for data_point in &v.data_points {
-                        all_series.push(data_point_to_time_series::sum_convert_f64(
-                            data_point,
-                            &v.start_time,
-                            &v.time,
-                            &descriptor,
-                            &monitored_resource_data,
-                            self.add_unique_identifier,
-                            self.unique_identifier.clone(),
-                        ));
-                    }
-                } else if let Some(v) = data.downcast_ref::<SdkGauge<u64>>() {
-                    for data_point in &v.data_points {
-                        all_series.push(data_point_to_time_series::gauge_convert_i64(
-                            data_point,
-                            &v.start_time,
-                            &v.time,
-                            &descriptor,
-                            &monitored_resource_data,
-                            self.add_unique_identifier,
-                            self.unique_identifier.clone(),
-                        ));
-                    }
-                } else if let Some(v) = data.downcast_ref::<SdkGauge<i64>>() {
-                    for data_point in &v.data_points {
-                        all_series.push(data_point_to_time_series::gauge_convert_i64(
-                            data_point,
-                            &v.start_time,
-                            &v.time,
-                            &descriptor,
-                            &monitored_resource_data,
-                            self.add_unique_identifier,
-                            self.unique_identifier.clone(),
-                        ));
-                    }
-                } else if let Some(v) = data.downcast_ref::<SdkGauge<f64>>() {
-                    for data_point in &v.data_points {
-                        all_series.push(data_point_to_time_series::gauge_convert_f64(
-                            data_point,
-                            &v.start_time,
-                            &v.time,
-                            &descriptor,
-                            &monitored_resource_data,
-                            self.add_unique_identifier,
-                            self.unique_identifier.clone(),
-                        ));
-                    }
+        for scope_metric in metrics.scope_metrics() {
+            for metric in scope_metric.metrics() {
+                let descriptor: MetricDescriptor = if let Some(descriptor) = self.get_metric_descriptor(metric).await {
+                    descriptor
                 } else {
-                    utils::log_warning(MetricsError::Other(format!(
-                        "GCPMetricsExporter: Unsupported metric data type, ignoring it for metric with name '{}'", metric.name),
-                    ));
+                    continue;
                 };
+                match metric.data() {
+                    AggregatedMetrics::F64(v) => match v {
+                        MetricData::Histogram(m) => {
+                            for data_point in m.data_points() {
+                                all_series.push(histogram_data_point_to_time_series::convert(
+                                    data_point,
+                                    &m.start_time(),
+                                    &m.time(),
+                                    &descriptor,
+                                    &monitored_resource_data,
+                                    self.add_unique_identifier,
+                                    self.unique_identifier.as_str(),
+                                ));
+                            }
+                        }
+                        MetricData::ExponentialHistogram(_) => {}
+                        MetricData::Sum(m) => {
+                            for data_point in m.data_points() {
+                                all_series.push(data_point_to_time_series::sum_convert_f64(
+                                    data_point,
+                                    &m.start_time(),
+                                    &m.time(),
+                                    &descriptor,
+                                    &monitored_resource_data,
+                                    self.add_unique_identifier,
+                                    self.unique_identifier.clone(),
+                                ));
+                            }
+                        }
+                        MetricData::Gauge(m) => {
+                            for data_point in m.data_points() {
+                                all_series.push(data_point_to_time_series::gauge_convert_f64(
+                                    data_point,
+                                    &m.start_time(),
+                                    &m.time(),
+                                    &descriptor,
+                                    &monitored_resource_data,
+                                    self.add_unique_identifier,
+                                    self.unique_identifier.clone(),
+                                ));
+                            }
+                        }
+                    },
+                    AggregatedMetrics::I64(v) => match v {
+                        MetricData::Histogram(m) => {
+                            for data_point in m.data_points() {
+                                all_series.push(histogram_data_point_to_time_series::convert(
+                                    data_point,
+                                    &m.start_time(),
+                                    &m.time(),
+                                    &descriptor,
+                                    &monitored_resource_data,
+                                    self.add_unique_identifier,
+                                    self.unique_identifier.as_str(),
+                                ));
+                            }
+                        }
+                        MetricData::ExponentialHistogram(_) => {}
+                        MetricData::Sum(m) => {
+                            for data_point in m.data_points() {
+                                all_series.push(data_point_to_time_series::sum_convert_i64(
+                                    data_point,
+                                    &m.start_time(),
+                                    &m.time(),
+                                    &descriptor,
+                                    &monitored_resource_data,
+                                    self.add_unique_identifier,
+                                    self.unique_identifier.clone(),
+                                ));
+                            }
+                        }
+                        MetricData::Gauge(m) => {
+                            for data_point in m.data_points() {
+                                all_series.push(data_point_to_time_series::gauge_convert_i64(
+                                    data_point,
+                                    &m.start_time(),
+                                    &m.time(),
+                                    &descriptor,
+                                    &monitored_resource_data,
+                                    self.add_unique_identifier,
+                                    self.unique_identifier.clone(),
+                                ));
+                            }
+                        }
+                    },
+                    AggregatedMetrics::U64(v) => match v {
+                        MetricData::Histogram(m) => {
+                            for data_point in m.data_points() {
+                                all_series.push(histogram_data_point_to_time_series::convert(
+                                    data_point,
+                                    &m.start_time(),
+                                    &m.time(),
+                                    &descriptor,
+                                    &monitored_resource_data,
+                                    self.add_unique_identifier,
+                                    self.unique_identifier.as_str(),
+                                ));
+                            }
+                        }
+                        MetricData::ExponentialHistogram(_) => {}
+                        MetricData::Sum(m) => {
+                            for data_point in m.data_points() {
+                                all_series.push(data_point_to_time_series::sum_convert_i64(
+                                    data_point,
+                                    &m.start_time(),
+                                    &m.time(),
+                                    &descriptor,
+                                    &monitored_resource_data,
+                                    self.add_unique_identifier,
+                                    self.unique_identifier.clone(),
+                                ));
+                            }
+                        }
+                        MetricData::Gauge(m) => {
+                            for data_point in m.data_points() {
+                                all_series.push(data_point_to_time_series::gauge_convert_i64(
+                                    data_point,
+                                    &m.start_time(),
+                                    &m.time(),
+                                    &descriptor,
+                                    &monitored_resource_data,
+                                    self.add_unique_identifier,
+                                    self.unique_identifier.clone(),
+                                ));
+                            }
+                        }
+                    },
+                }
             }
         }
         // println!("all_series len: {}", all_series.len());
@@ -544,15 +533,15 @@ impl GCPMetricsExporter {
                 let channel = match self.make_chanel().await {
                     Ok(channel) => channel,
                     Err(err) => {
-                        return Err(OTelSdkError::InternalFailure(format!("GCPMetricsExporter: Cant init google services grpc transport channel [Make issue with this case in github repo]: {:?}", err)));
+                        return Err(OTelSdkError::InternalFailure(format!(
+                            "GCPMetricsExporter: Cant init google services grpc transport channel [Make issue with this case in github repo]: {:?}",
+                            err
+                        )));
                     }
                 };
                 let mut msc = MetricServiceClient::new(channel);
                 if let Err(err) = msc.create_time_series(req).await {
-                    utils::log_warning(MetricsError::Other(format!(
-                        "GCPMetricsExporter: Cant send time series: {:?}",
-                        err
-                    )));
+                    utils::log_warning(format!("GCPMetricsExporter: Cant send time series: {:?}", err));
                     match err.code() {
                         tonic::Code::Unavailable
                         | tonic::Code::DataLoss
@@ -564,10 +553,10 @@ impl GCPMetricsExporter {
                             continue;
                         }
                         _ => {
-                            utils::log_warning(MetricsError::Other(format!(
+                            utils::log_warning(format!(
                                 "GCPMetricsExporter: Cant send time series: Request: {:?}",
                                 create_time_series_request
-                            )));
+                            ));
                             break;
                         }
                     }
@@ -580,12 +569,8 @@ impl GCPMetricsExporter {
     }
 }
 
-// #[async_trait]
 impl PushMetricsExporter for GCPMetricsExporter {
-    fn export(
-        &self,
-        metrics: &mut ResourceMetrics,
-    ) -> impl std::future::Future<Output = Result<(), OTelSdkError>> + Send {
+    fn export(&self, metrics: &ResourceMetrics) -> impl std::future::Future<Output = Result<(), OTelSdkError>> + Send {
         async {
             let sys_time = SystemTime::now();
             let resp = self.exec_export(metrics).await;
@@ -603,13 +588,11 @@ impl PushMetricsExporter for GCPMetricsExporter {
         Ok(()) // In this implementation, flush does nothing
     }
 
-    fn shutdown(&self) -> Result<(), OTelSdkError> {
-        // TracepointState automatically unregisters when dropped
-        // https://github.com/microsoft/LinuxTracepoints-Rust/blob/main/eventheader/src/native.rs#L618
-        Ok(())
-    }
-
     fn temporality(&self) -> Temporality {
         Temporality::default()
+    }
+
+    fn shutdown_with_timeout(&self, _timeout: Duration) -> opentelemetry_sdk::error::OTelSdkResult {
+        Ok(())
     }
 }

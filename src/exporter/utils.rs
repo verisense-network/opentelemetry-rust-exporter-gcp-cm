@@ -1,96 +1,80 @@
 use opentelemetry::KeyValue;
+use opentelemetry_sdk::metrics::data::{AggregatedMetrics, MetricData};
 
-use opentelemetry_sdk::metrics::MetricError as MetricsError;
-
-use opentelemetry_sdk::metrics::data::{
-    ExponentialHistogram as SdkExponentialHistogram, Gauge as SdkGauge, Histogram as SdkHistogram,
-    Sum as SdkSum,
-};
-use std::any::Any;
 use std::collections::HashSet;
 
-pub(crate) fn log_warning(err: MetricsError) {
+pub(crate) fn log_warning(err: String) {
     tracing::warn!("{}", err);
 }
 
-pub(crate) fn get_data_points_attributes_keys(data: &dyn Any) -> HashSet<String> {
-    let attributes_keys = if let Some(v) = data.downcast_ref::<SdkHistogram<i64>>() {
-        v.data_points
-            .iter()
-            .map(|point| point.attributes.iter().map(kv_map_k))
-            .flatten()
-            .collect()
-    } else if let Some(v) = data.downcast_ref::<SdkHistogram<u64>>() {
-        v.data_points
-            .iter()
-            .map(|point| point.attributes.iter().map(kv_map_k))
-            .flatten()
-            .collect()
-    } else if let Some(v) = data.downcast_ref::<SdkHistogram<f64>>() {
-        v.data_points
-            .iter()
-            .map(|point| point.attributes.iter().map(kv_map_k))
-            .flatten()
-            .collect()
-    } else if let Some(v) = data.downcast_ref::<SdkExponentialHistogram<i64>>() {
-        v.data_points
-            .iter()
-            .map(|point| point.attributes.iter().map(kv_map_k))
-            .flatten()
-            .collect()
-    } else if let Some(v) = data.downcast_ref::<SdkExponentialHistogram<u64>>() {
-        v.data_points
-            .iter()
-            .map(|point| point.attributes.iter().map(kv_map_k))
-            .flatten()
-            .collect()
-    } else if let Some(v) = data.downcast_ref::<SdkExponentialHistogram<f64>>() {
-        v.data_points
-            .iter()
-            .map(|point| point.attributes.iter().map(kv_map_k))
-            .flatten()
-            .collect()
-    } else if let Some(v) = data.downcast_ref::<SdkSum<u64>>() {
-        v.data_points
-            .iter()
-            .map(|point| point.attributes.iter().map(kv_map_k))
-            .flatten()
-            .collect()
-    } else if let Some(v) = data.downcast_ref::<SdkSum<i64>>() {
-        v.data_points
-            .iter()
-            .map(|point| point.attributes.iter().map(kv_map_k))
-            .flatten()
-            .collect()
-    } else if let Some(v) = data.downcast_ref::<SdkSum<f64>>() {
-        v.data_points
-            .iter()
-            .map(|point| point.attributes.iter().map(kv_map_k))
-            .flatten()
-            .collect()
-    } else if let Some(v) = data.downcast_ref::<SdkGauge<u64>>() {
-        v.data_points
-            .iter()
-            .map(|point| point.attributes.iter().map(kv_map_k))
-            .flatten()
-            .collect()
-    } else if let Some(v) = data.downcast_ref::<SdkGauge<i64>>() {
-        v.data_points
-            .iter()
-            .map(|point| point.attributes.iter().map(kv_map_k))
-            .flatten()
-            .collect()
-    } else if let Some(v) = data.downcast_ref::<SdkGauge<f64>>() {
-        v.data_points
-            .iter()
-            .map(|point| point.attributes.iter().map(kv_map_k))
-            .flatten()
-            .collect()
-    } else {
-        log_warning(MetricsError::Other(
-            "Unsupported metric data type, ignoring it".into(),
-        ));
-        vec![]
+pub(crate) fn get_data_points_attributes_keys(data: &AggregatedMetrics) -> HashSet<String> {
+    let attributes_keys: Vec<String> = match data {
+        AggregatedMetrics::F64(v) => match v {
+            MetricData::Histogram(m) => m
+                .data_points()
+                .map(|point| point.attributes().map(kv_map_k))
+                .flatten()
+                .collect(),
+            MetricData::ExponentialHistogram(m) => m
+                .data_points()
+                .map(|point| point.attributes().map(kv_map_k))
+                .flatten()
+                .collect(),
+            MetricData::Sum(m) => m
+                .data_points()
+                .map(|point| point.attributes().map(kv_map_k))
+                .flatten()
+                .collect(),
+            MetricData::Gauge(m) => m
+                .data_points()
+                .map(|point| point.attributes().map(kv_map_k))
+                .flatten()
+                .collect(),
+        },
+        AggregatedMetrics::I64(v) => match v {
+            MetricData::Histogram(m) => m
+                .data_points()
+                .map(|point| point.attributes().map(kv_map_k))
+                .flatten()
+                .collect(),
+            MetricData::ExponentialHistogram(m) => m
+                .data_points()
+                .map(|point| point.attributes().map(kv_map_k))
+                .flatten()
+                .collect(),
+            MetricData::Sum(m) => m
+                .data_points()
+                .map(|point| point.attributes().map(kv_map_k))
+                .flatten()
+                .collect(),
+            MetricData::Gauge(m) => m
+                .data_points()
+                .map(|point| point.attributes().map(kv_map_k))
+                .flatten()
+                .collect(),
+        },
+        AggregatedMetrics::U64(v) => match v {
+            MetricData::Histogram(m) => m
+                .data_points()
+                .map(|point| point.attributes().map(kv_map_k))
+                .flatten()
+                .collect(),
+            MetricData::ExponentialHistogram(m) => m
+                .data_points()
+                .map(|point| point.attributes().map(kv_map_k))
+                .flatten()
+                .collect(),
+            MetricData::Sum(m) => m
+                .data_points()
+                .map(|point| point.attributes().map(kv_map_k))
+                .flatten()
+                .collect(),
+            MetricData::Gauge(m) => m
+                .data_points()
+                .map(|point| point.attributes().map(kv_map_k))
+                .flatten()
+                .collect(),
+        },
     };
     HashSet::from_iter(attributes_keys.into_iter())
 }
@@ -128,10 +112,7 @@ fn sanitize_string(s: &str) -> String {
 }
 
 pub(crate) fn kv_map_normalize_k_v(kv: &KeyValue) -> (String, String) {
-    (
-        normalize_label_key(&kv.key.to_string()),
-        kv.value.to_string(),
-    )
+    (normalize_label_key(&kv.key.to_string()), kv.value.to_string())
 }
 
 pub(crate) fn kv_map_k(kv: &KeyValue) -> String {
@@ -148,13 +129,7 @@ mod tests {
         assert_eq!(normalize_label_key("hellø"), "hellø");
         assert_eq!(normalize_label_key("123"), "key_123");
         assert_eq!(normalize_label_key("key!321"), "key_321");
-        assert_eq!(
-            normalize_label_key("hyphens-dots.slashes/"),
-            "hyphens_dots_slashes_"
-        );
-        assert_eq!(
-            normalize_label_key("non_letters_:£¢$∞"),
-            "non_letters______"
-        );
+        assert_eq!(normalize_label_key("hyphens-dots.slashes/"), "hyphens_dots_slashes_");
+        assert_eq!(normalize_label_key("non_letters_:£¢$∞"), "non_letters______");
     }
 }

@@ -50,15 +50,14 @@ pub fn sum_convert_f64<T: ToF64 + Copy>(
         value: Some(gcloud_sdk::google::monitoring::v3::TypedValue {
             value: Some(
                 gcloud_sdk::google::monitoring::v3::typed_value::Value::DoubleValue(
-                    data_point.value.to_f64(),
+                    data_point.value().to_f64(),
                 ),
             ),
         }),
     };
 
     let mut labels = data_point
-        .attributes
-        .iter()
+        .attributes()
         .map(kv_map_normalize_k_v)
         .collect::<std::collections::HashMap<String, String>>();
     if add_unique_identifier {
@@ -119,15 +118,14 @@ pub fn sum_convert_i64<T: ToI64 + Copy>(
         value: Some(gcloud_sdk::google::monitoring::v3::TypedValue {
             value: Some(
                 gcloud_sdk::google::monitoring::v3::typed_value::Value::Int64Value(
-                    data_point.value.to_i64(),
+                    data_point.value().to_i64(),
                 ),
             ),
         }),
     };
 
     let mut labels = data_point
-        .attributes
-        .iter()
+        .attributes()
         .map(kv_map_normalize_k_v)
         .collect::<std::collections::HashMap<String, String>>();
     if add_unique_identifier {
@@ -188,15 +186,14 @@ pub fn gauge_convert_f64<T: ToF64 + Copy>(
         value: Some(gcloud_sdk::google::monitoring::v3::TypedValue {
             value: Some(
                 gcloud_sdk::google::monitoring::v3::typed_value::Value::DoubleValue(
-                    data_point.value.to_f64(),
+                    data_point.value().to_f64(),
                 ),
             ),
         }),
     };
 
     let mut labels = data_point
-        .attributes
-        .iter()
+        .attributes()
         .map(kv_map_normalize_k_v)
         .collect::<std::collections::HashMap<String, String>>();
     if add_unique_identifier {
@@ -257,15 +254,14 @@ pub fn gauge_convert_i64<T: ToI64 + Copy>(
         value: Some(gcloud_sdk::google::monitoring::v3::TypedValue {
             value: Some(
                 gcloud_sdk::google::monitoring::v3::typed_value::Value::Int64Value(
-                    data_point.value.to_i64(),
+                    data_point.value().to_i64(),
                 ),
             ),
         }),
     };
 
     let mut labels = data_point
-        .attributes
-        .iter()
+        .attributes()
         .map(kv_map_normalize_k_v)
         .collect::<std::collections::HashMap<String, String>>();
     if add_unique_identifier {
